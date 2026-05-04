@@ -60,7 +60,7 @@ export function PostActions({
   }
 
   async function copyToClipboard() {
-    const text = [hook, "", body, "", hashtags.map((h) => `#${h}`).join(" ")]
+    const text = [hook, "", body, "", hashtags.map((h) => `${h}`).join(" ")]
       .join("\n")
       .trim();
     try {
