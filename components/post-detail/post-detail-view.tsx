@@ -255,7 +255,7 @@ export async function PostDetailView({ post }: { post: Post }) {
           <div className="flex flex-wrap gap-1.5">
             {hashtags.map((h) => (
               <Badge key={h} variant="muted">
-                #{h}
+                {h}
               </Badge>
             ))}
           </div>
