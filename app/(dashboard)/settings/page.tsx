@@ -25,7 +25,7 @@ import {
   resetOverridesAction,
   saveGenerationConcurrencyAction,
 } from "./actions";
-import { TaskRoutingRow } from "./task-routing-row";
+import { ModelRoutingEditor } from "./model-routing-editor";
 import {
   getGenerationConcurrency,
   CONCURRENCY_DEFAULT,
@@ -199,67 +199,24 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Model routing</CardTitle>
           <CardDescription>
-            Per-task provider and model. Leave model blank to use the default.
+            Add a model, then assign the purposes it should handle.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={saveOverridesAction} className="flex flex-col gap-4">
-            <div className="overflow-hidden rounded-md border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-bg-overlay">
-                  <tr className="text-left text-[11px] uppercase tracking-wider text-fg-subtle">
-                    <th className="px-4 py-2 font-medium w-[200px]">Task</th>
-                    <th className="px-4 py-2 font-medium">Default</th>
-                    <th className="px-4 py-2 font-medium w-[340px]">
-                      Override
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TASK_ORDER.map((task, i) => {
-                    const def = DEFAULT_ROUTING[task];
-                    const ov = overrides[task];
-                    return (
-                      <tr
-                        key={task}
-                        className={
-                          i === TASK_ORDER.length - 1
-                            ? ""
-                            : "border-b border-border"
-                        }
-                      >
-                        <td className="px-4 py-3 align-top">
-                          <div className="font-medium text-fg">{task}</div>
-                          <div className="text-xs text-fg-subtle mt-1 leading-snug">
-                            {TASK_HELP[task]}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <span className="font-mono text-xs text-fg-subtle">
-                            {def.provider}/{def.model}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <TaskRoutingRow
-                            key={`${task}:${ov?.provider ?? def.provider}:${ov?.model ?? ""}`}
-                            task={task}
-                            initialProvider={ov?.provider ?? def.provider}
-                            initialModel={ov?.model ?? ""}
-                            initialReasoningEffort={ov?.reasoningEffort ?? ""}
-                            defaultLabel={def.model}
-                            openRouterModels={openRouter.models}
-                            openCodeModels={openCode.models}
-                            codexModels={codex.models}
-                            openCodeAvailable={openCode.available}
-                            codexAvailable={codex.available}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <ModelRoutingEditor
+              tasks={TASK_ORDER.map((task) => ({
+                task,
+                help: TASK_HELP[task],
+                defaultRouting: DEFAULT_ROUTING[task],
+              }))}
+              overrides={overrides}
+              openRouterModels={openRouter.models}
+              openCodeModels={openCode.models}
+              codexModels={codex.models}
+              openCodeAvailable={openCode.available}
+              codexAvailable={codex.available}
+            />
             <div className="flex items-center gap-2">
               <Button type="submit" variant="default">
                 Save overrides
