@@ -1,0 +1,1 @@
+ALTER TABLE `generation_jobs` ADD `in_flight` integer DEFAULT 0 NOT NULL;

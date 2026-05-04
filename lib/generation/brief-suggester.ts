@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
-import { callLLMJson } from "@/lib/llm/openrouter";
+import { callLLMJson } from "@/lib/llm";
 import {
   buildBriefSuggesterPrompt,
   type BriefSuggesterOutput,

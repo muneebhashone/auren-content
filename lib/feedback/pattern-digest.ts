@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { performanceRecords, personas, posts, settings } from "@/lib/db/schema";
 import { safeJson } from "@/lib/utils";
-import { callLLMJson } from "@/lib/llm/openrouter";
+import { callLLMJson } from "@/lib/llm";
 import {
   buildFeedbackAnalysisPrompt,
   type FeedbackAnalysisInput,

@@ -33,8 +33,9 @@ const personaInput = z.object({
 function readPersonaForm(formData: FormData) {
   const platformsRaw = formData.getAll("platforms").map(String) as string[];
   const platforms = platformsRaw.filter((p): p is Platform => p === "x" || p === "linkedin");
-  const cadence: Cadence = {};
-  for (const p of platforms) {
+  const cadence: Record<Platform, number> = { x: 0, linkedin: 0 };
+  for (const p of ["x", "linkedin"] as const) {
+    if (!platforms.includes(p)) continue;
     const raw = Number(formData.get(`cadence_${p}`) ?? 0);
     cadence[p] = Number.isFinite(raw) ? Math.max(0, Math.min(50, Math.floor(raw))) : 0;
   }

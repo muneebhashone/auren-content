@@ -129,6 +129,25 @@ export const performanceRecords = sqliteTable("performance_records", {
   importedAt: ts("imported_at"),
 });
 
+export const generationJobs = sqliteTable("generation_jobs", {
+  id: id(),
+  isoWeek: text("iso_week").notNull(),
+  // 'running' | 'succeeded' | 'failed'
+  status: text("status").notNull().default("running"),
+  // 'init' | 'research' | 'performance' | 'strategy' | 'slot' | 'done'
+  stage: text("stage").notNull().default("init"),
+  stageLabel: text("stage_label").notNull().default(""),
+  totalSlots: integer("total_slots"),
+  currentSlot: integer("current_slot"),
+  inFlight: integer("in_flight").notNull().default(0),
+  postsCreated: integer("posts_created").notNull().default(0),
+  signalsFetched: integer("signals_fetched").notNull().default(0),
+  errorMessage: text("error_message").notNull().default(""),
+  startedAt: ts("started_at"),
+  updatedAt: ts("updated_at"),
+  finishedAt: text("finished_at"),
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   // arbitrary JSON value
@@ -145,3 +164,4 @@ export type Post = typeof posts.$inferSelect;
 export type RationaleCitation = typeof rationaleCitations.$inferSelect;
 export type PerformanceRecord = typeof performanceRecords.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
+export type GenerationJob = typeof generationJobs.$inferSelect;

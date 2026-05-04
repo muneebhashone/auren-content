@@ -1,0 +1,128 @@
+import { spawn } from "node:child_process";
+
+export interface LlmModelInfo {
+  id: string;
+  name: string;
+}
+
+export interface ModelListResult {
+  models: LlmModelInfo[];
+  available: boolean;
+  error?: string;
+}
+
+const TTL_MS = 5 * 60 * 1000;
+
+interface CacheEntry {
+  at: number;
+  result: ModelListResult;
+}
+
+let openRouterCache: CacheEntry | null = null;
+let openCodeCache: CacheEntry | null = null;
+
+function fresh(entry: CacheEntry | null): boolean {
+  return !!entry && Date.now() - entry.at < TTL_MS;
+}
+
+export async function listOpenRouterModels(): Promise<ModelListResult> {
+  if (fresh(openRouterCache)) return openRouterCache!.result;
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  try {
+    const headers: Record<string, string> = {};
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    const res = await fetch("https://openrouter.ai/api/v1/models", { headers });
+    if (!res.ok) {
+      const result: ModelListResult = {
+        models: [],
+        available: false,
+        error: `OpenRouter ${res.status}`,
+      };
+      openRouterCache = { at: Date.now(), result };
+      return result;
+    }
+    const data = (await res.json()) as {
+      data?: Array<{ id?: string; name?: string }>;
+    };
+    const models: LlmModelInfo[] = (data.data ?? [])
+      .filter((m): m is { id: string; name?: string } => typeof m.id === "string")
+      .map((m) => ({ id: m.id, name: m.name || m.id }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const result: ModelListResult = { models, available: true };
+    openRouterCache = { at: Date.now(), result };
+    return result;
+  } catch (err) {
+    const result: ModelListResult = {
+      models: [],
+      available: false,
+      error: (err as Error).message,
+    };
+    openRouterCache = { at: Date.now(), result };
+    return result;
+  }
+}
+
+export async function listOpenCodeModels(): Promise<ModelListResult> {
+  if (fresh(openCodeCache)) return openCodeCache!.result;
+
+  const bin = process.env.OPENCODE_BIN || "opencode";
+  const result = await new Promise<ModelListResult>((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const child = spawn(bin, ["models"], { stdio: ["ignore", "pipe", "pipe"] });
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        child.kill();
+      } catch {}
+      resolve({
+        models: [],
+        available: false,
+        error: "opencode models timed out after 10s",
+      });
+    }, 10_000);
+
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({
+        models: [],
+        available: false,
+        error: `spawn failed: ${err.message}`,
+      });
+    });
+    child.stdout.on("data", (c: Buffer) => {
+      stdout += c.toString("utf8");
+    });
+    child.stderr.on("data", (c: Buffer) => {
+      stderr += c.toString("utf8");
+    });
+    child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (code !== 0) {
+        resolve({
+          models: [],
+          available: false,
+          error: `exit ${code}: ${stderr.trim() || "(empty)"}`,
+        });
+        return;
+      }
+      const ids = stdout
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => /^[A-Za-z0-9._-]+\/.+/.test(l));
+      const models: LlmModelInfo[] = Array.from(new Set(ids))
+        .sort()
+        .map((id) => ({ id, name: id }));
+      resolve({ models, available: true });
+    });
+  });
+  openCodeCache = { at: Date.now(), result };
+  return result;
+}

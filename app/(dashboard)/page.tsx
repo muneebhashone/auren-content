@@ -5,6 +5,7 @@ import { formatIsoWeek, isoWeekRange } from "@/lib/utils";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import { KanbanBoard } from "@/components/calendar/kanban-board";
+import { GenerationStatusBanner } from "@/components/calendar/generation-status-banner";
 
 type SP = {
   week?: string;
@@ -65,6 +66,8 @@ export default async function DashboardHome({
           </p>
         </div>
       </header>
+
+      <GenerationStatusBanner isoWeek={isoWeek} />
 
       <CalendarToolbar
         isoWeek={isoWeek}

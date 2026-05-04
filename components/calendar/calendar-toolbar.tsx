@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn, isoWeekRange, nextIsoWeek } from "@/lib/utils";
+import { cn, formatIsoWeek, isoWeekRange, nextIsoWeek } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Persona } from "@/lib/db/schema";
 
@@ -39,7 +39,7 @@ export function CalendarToolbar({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState<null | "current" | "next">(null);
 
   const { start, end } = isoWeekRange(isoWeek);
   const label = `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
@@ -72,24 +72,32 @@ export function CalendarToolbar({
     navigate({ personas: next.length === 0 ? null : next.join(",") });
   }
 
-  async function handleGenerate() {
-    setGenerating(true);
+  async function handleGenerate(mode: "current" | "next") {
+    setGenerating(mode);
     try {
       const res = await fetch("/api/generate/week", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "next" }),
+        body: JSON.stringify({ mode }),
       });
-      if (!res.ok) throw new Error("Failed to generate");
-      const data = (await res.json()) as { isoWeek?: string };
-      const target = data.isoWeek ?? nextIsoWeek(isoWeek);
+      const data = (await res.json().catch(() => ({}))) as {
+        isoWeek?: string;
+        jobId?: number;
+        error?: string;
+        alreadyRunning?: boolean;
+      };
+      if (!res.ok && !data.alreadyRunning) {
+        throw new Error(data.error || "Failed to generate");
+      }
+      const fallback = mode === "current" ? formatIsoWeek() : nextIsoWeek(isoWeek);
+      const target = data.isoWeek ?? fallback;
       router.push(`/?week=${target}`);
       router.refresh();
     } catch (err) {
       console.error(err);
       alert("Generation failed: " + (err as Error).message);
     } finally {
-      setGenerating(false);
+      setGenerating(null);
     }
   }
 
@@ -190,14 +198,29 @@ export function CalendarToolbar({
         ))}
       </div>
 
-      <div className="ml-auto">
-        <Button onClick={handleGenerate} disabled={generating}>
-          {generating ? (
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={() => handleGenerate("current")}
+          disabled={generating !== null}
+        >
+          {generating === "current" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
-          {generating ? "Generating…" : "Generate next week"}
+          {generating === "current" ? "Generating…" : "Generate this week"}
+        </Button>
+        <Button
+          onClick={() => handleGenerate("next")}
+          disabled={generating !== null}
+        >
+          {generating === "next" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {generating === "next" ? "Generating…" : "Generate next week"}
         </Button>
       </div>
     </div>

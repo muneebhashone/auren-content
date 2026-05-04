@@ -15,6 +15,20 @@
       "when": 1777835666892,
       "tag": "0001_gifted_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777844426020,
+      "tag": "0002_outgoing_barracuda",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777847887781,
+      "tag": "0003_aspiring_terror",
+      "breakpoints": true
     }
   ]
 }

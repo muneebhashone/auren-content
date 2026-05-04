@@ -1,4 +1,6 @@
 import { db } from "@/lib/db/client";
+import { runWithConcurrency } from "./concurrency";
+import { getGenerationConcurrency } from "./settings";
 import {
   businessProfile,
   performanceRecords,
@@ -11,7 +13,8 @@ import {
 } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
-import { callLLMJson } from "@/lib/llm/openrouter";
+import { callLLMJson } from "@/lib/llm";
+import type { JobReporter } from "./job-reporter";
 import {
   buildResearchPrompt,
   type ResearchSignalOut,
@@ -65,7 +68,7 @@ async function getOrCreateBrief(isoWeek: string) {
 
 export async function runResearch(
   isoWeek: string,
-  opts: { skipIfRecent?: boolean } = {}
+  opts: { skipIfRecent?: boolean; reporter?: JobReporter } = {}
 ): Promise<{ signalsFetched: number; weekId: number }> {
   const profileRow = (await db.select().from(businessProfile).limit(1))[0];
   if (!profileRow) throw new Error("Business profile not configured.");
@@ -101,6 +104,9 @@ export async function runResearch(
     task: "research",
     messages,
     maxTokens: 2200,
+    // Perplexity-specific: hard-cap web search to the last week. Ignored by
+    // non-Perplexity models routed to this task.
+    extraBody: { search_recency_filter: "week" },
   });
 
   const signals = result.content.signals ?? [];
@@ -114,6 +120,7 @@ export async function runResearch(
       kind: s.kind,
     }))
   );
+  await opts.reporter?.signalsFetched(signals.length);
   return { signalsFetched: signals.length, weekId: brief.id };
 }
 
@@ -201,6 +208,7 @@ async function generateOneSlot(
     topPerformers: string;
     goalObjective?: string;
     weekId: number;
+    reporter?: JobReporter;
   }
 ): Promise<{
   postId: number;
@@ -295,6 +303,7 @@ async function generateOneSlot(
       rationaleJson: "{}",
     })
     .returning();
+  await ctx.reporter?.completedPost();
 
   // 5. Rationale + citations
   try {
@@ -355,7 +364,8 @@ async function generateOneSlot(
 }
 
 export async function generateWeek(
-  isoWeek: string
+  isoWeek: string,
+  reporter?: JobReporter
 ): Promise<GenerationResult> {
   // 1. Load all context
   const profileRow = (await db.select().from(businessProfile).limit(1))[0];
@@ -378,8 +388,13 @@ export async function generateWeek(
 
   const brief = await getOrCreateBrief(isoWeek);
 
-  // 2. Ensure research signals exist for the week (idempotent)
-  await runResearch(isoWeek, { skipIfRecent: true });
+  // 2 & 3. Research + performance-digest run concurrently — they are
+  // independent (perf-digest does not depend on this week's signals).
+  await reporter?.stage("research", "Researching trends & past performance");
+  const [, performanceDigest] = await Promise.all([
+    runResearch(isoWeek, { skipIfRecent: true, reporter }),
+    buildPerformanceDigest(),
+  ]);
 
   const signalRows = await db
     .select()
@@ -389,10 +404,8 @@ export async function generateWeek(
     signalRows.map((s) => [s.id, { id: s.id, summary: s.summary, sourceUrl: s.sourceUrl }])
   );
 
-  // 3. Performance digest (may be empty)
-  const performanceDigest = await buildPerformanceDigest();
-
   // 4. Strategy step
+  await reporter?.stage("strategy", "Planning the week");
   const services = safeJson<Array<{ name: string }>>(
     profileRow.servicesJson,
     []
@@ -453,19 +466,33 @@ export async function generateWeek(
       and(eq(postsTable.weekId, brief.id), eq(postsTable.status, "draft"))
     );
 
-  // 6. Per-slot generation (sequential to avoid rate-limits; each step is JSON-mode chained)
+  // 6. Per-slot generation — bounded concurrency. Slots are independent
+  // (no shared mutable state, writes scoped to a freshly inserted row).
+  const slots = weekPlan.slots ?? [];
+  await reporter?.setTotalSlots(slots.length);
   const personaById = new Map(allPersonas.map((p) => [p.id, p]));
-  let postsCreated = 0;
-  for (const slot of weekPlan.slots ?? []) {
+  const concurrency = await getGenerationConcurrency();
+  await reporter?.stage(
+    "slot",
+    `Generating ${slots.length} posts (up to ${concurrency} in parallel)`
+  );
+
+  // Backfill scheduled_for up-front so the index used for fallback dates is
+  // stable regardless of completion order under parallelism.
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    if (!slot.scheduled_for || isNaN(Date.parse(slot.scheduled_for))) {
+      slot.scheduled_for = isoDateInWeek(isoWeek, i % 5, 9);
+    }
+  }
+
+  const settled = await runWithConcurrency(slots, concurrency, async (slot) => {
     const persona = personaById.get(slot.persona_id);
     if (!persona) {
       console.warn("Skipping slot with unknown persona_id", slot.persona_id);
-      continue;
+      return { skipped: true as const };
     }
-    // Backfill scheduled_for if model returned something unparseable
-    if (!slot.scheduled_for || isNaN(Date.parse(slot.scheduled_for))) {
-      slot.scheduled_for = isoDateInWeek(isoWeek, postsCreated % 5, 9);
-    }
+    await reporter?.startSlot();
     try {
       await generateOneSlot(slot, {
         weekTheme: weekPlan.week_theme,
@@ -475,10 +502,22 @@ export async function generateWeek(
         topPerformers: performanceDigest,
         goalObjective: goalRow?.objective,
         weekId: brief.id,
+        reporter,
       });
+      return { skipped: false as const };
+    } finally {
+      await reporter?.endSlot();
+    }
+  });
+
+  let postsCreated = 0;
+  for (const r of settled) {
+    if (r.status === "fulfilled" && r.value && !r.value.skipped) {
       postsCreated++;
-    } catch (err) {
-      console.error("Slot generation failed:", (err as Error).message);
+    } else if (r.status === "rejected") {
+      const reason = r.reason;
+      const msg = reason instanceof Error ? reason.message : String(reason);
+      console.error("Slot generation failed:", msg);
     }
   }
 
