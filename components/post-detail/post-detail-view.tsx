@@ -202,8 +202,29 @@ export async function PostDetailView({ post }: { post: Post }) {
           hook={post.hook}
           body={post.body}
           hashtags={hashtags}
+          hasImagePrompt={Boolean(post.imagePrompt)}
         />
       </header>
+
+      {post.imageUrl ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-widest text-fg-subtle">
+            Generated image
+          </h2>
+          <div className="overflow-hidden rounded-md border border-border bg-bg-elevated">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={post.imageUrl}
+              alt=""
+              className="max-h-[640px] w-full object-contain"
+            />
+          </div>
+          <p className="text-xs text-fg-subtle">
+            Generated with {post.imageProvider || "codex"}
+            {post.imageGeneratedAt ? ` on ${post.imageGeneratedAt}` : ""}.
+          </p>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-3">
         <h2 className="font-mono text-[11px] font-semibold uppercase tracking-widest text-fg-subtle">

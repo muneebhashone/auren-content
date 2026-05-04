@@ -1,6 +1,7 @@
 import { getRoutingForTask } from "./router";
 import { callOpenRouter } from "./openrouter";
 import { callOpenCode } from "./opencode";
+import { callCodex } from "./codex";
 import type { CallOptions, CallResult, ChatMessage } from "./types";
 
 export type { ChatMessage, CallOptions, CallResult, LlmProvider, TaskRouting } from "./types";
@@ -27,6 +28,7 @@ export async function callLLM(
   const routing = await getRoutingForTask(opts.task);
   const provider = opts.providerOverride ?? routing.provider;
   const model = opts.modelOverride ?? routing.model;
+  const reasoningEffort = opts.reasoningEffortOverride ?? routing.reasoningEffort;
 
   const optsWithDate: CallOptions = {
     ...opts,
@@ -35,6 +37,9 @@ export async function callLLM(
 
   if (provider === "opencode") {
     return callOpenCode(optsWithDate, model);
+  }
+  if (provider === "codex") {
+    return callCodex(optsWithDate, model, reasoningEffort);
   }
   return callOpenRouter(optsWithDate, model);
 }

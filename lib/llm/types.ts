@@ -1,10 +1,12 @@
 import type { LlmTask } from "./router";
 
-export type LlmProvider = "openrouter" | "opencode";
+export type LlmProvider = "openrouter" | "opencode" | "codex";
+export type CodexReasoningEffort = "low" | "medium" | "high" | "xhigh";
 
 export interface TaskRouting {
   provider: LlmProvider;
   model: string;
+  reasoningEffort?: CodexReasoningEffort;
 }
 
 export type ChatMessage =
@@ -22,17 +24,19 @@ export interface CallOptions {
   messages: ChatMessage[];
   /** When true, instructs the model to return JSON. */
   json?: boolean;
-  /** Temperature; default 0.7 for write tasks, 0.3 for analytic ones. Ignored by opencode provider. */
+  /** Temperature; default 0.7 for write tasks, 0.3 for analytic ones. Ignored by CLI providers. */
   temperature?: number;
-  /** Max output tokens. Ignored by opencode provider. */
+  /** Max output tokens. Ignored by CLI providers. */
   maxTokens?: number;
   /** Override the routed model (rare). Format: "model-id" — does not include provider prefix. */
   modelOverride?: string;
   /** Override the routed provider (rare). */
   providerOverride?: LlmProvider;
-  /** Extra OpenRouter routing flags. Ignored by opencode provider. */
+  /** Override Codex CLI reasoning effort. Ignored by non-Codex providers. */
+  reasoningEffortOverride?: CodexReasoningEffort;
+  /** Extra OpenRouter routing flags. Ignored by CLI providers. */
   providerHints?: Record<string, unknown>;
-  /** Extra top-level fields merged into the OpenRouter request body (e.g. Perplexity's `search_recency_filter`). Ignored by opencode provider. */
+  /** Extra top-level fields merged into the OpenRouter request body (e.g. Perplexity's `search_recency_filter`). Ignored by CLI providers. */
   extraBody?: Record<string, unknown>;
 }
 

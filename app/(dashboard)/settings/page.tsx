@@ -6,6 +6,7 @@ import {
 import {
   listOpenRouterModels,
   listOpenCodeModels,
+  listCodexModels,
 } from "@/lib/llm/models";
 import {
   Card,
@@ -56,10 +57,11 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const hasKey = Boolean(process.env.OPENROUTER_API_KEY);
-  const [overrides, openRouter, openCode, concurrency] = await Promise.all([
+  const [overrides, openRouter, openCode, codex, concurrency] = await Promise.all([
     getAllRoutingOverrides(),
     listOpenRouterModels(),
     listOpenCodeModels(),
+    listCodexModels(),
     getGenerationConcurrency(),
   ]);
 
@@ -103,6 +105,49 @@ export default async function SettingsPage() {
           >
             openrouter.ai
           </a>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Codex CLI</CardTitle>
+            <CardDescription>
+              Local <code className="font-mono">codex</code> binary. Uses
+              Codex CLI directly; no SDK.
+            </CardDescription>
+          </div>
+          {codex.available ? (
+            <Badge variant="accent">Configured</Badge>
+          ) : (
+            <Badge variant="warning">Unavailable</Badge>
+          )}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm text-fg-muted">
+          {codex.available ? (
+            <p>
+              {codex.models.length} models discovered via{" "}
+              <code className="font-mono">codex debug models</code>.
+            </p>
+          ) : (
+            <p>
+              CLI not reachable. Install{" "}
+              <a
+                href="https://developers.openai.com/codex/cli"
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent hover:underline"
+              >
+                Codex CLI
+              </a>
+              , run <code className="font-mono">codex login</code> once, and
+              ensure it&apos;s on PATH (or set{" "}
+              <code className="font-mono">CODEX_BIN</code>).{" "}
+              {codex.error && (
+                <span className="text-warning">({codex.error})</span>
+              )}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -196,13 +241,17 @@ export default async function SettingsPage() {
                         </td>
                         <td className="px-4 py-3 align-top">
                           <TaskRoutingRow
+                            key={`${task}:${ov?.provider ?? def.provider}:${ov?.model ?? ""}`}
                             task={task}
                             initialProvider={ov?.provider ?? def.provider}
                             initialModel={ov?.model ?? ""}
+                            initialReasoningEffort={ov?.reasoningEffort ?? ""}
                             defaultLabel={def.model}
                             openRouterModels={openRouter.models}
                             openCodeModels={openCode.models}
+                            codexModels={codex.models}
                             openCodeAvailable={openCode.available}
+                            codexAvailable={codex.available}
                           />
                         </td>
                       </tr>

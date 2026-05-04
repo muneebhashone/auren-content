@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Codex CLI provider
+
+This app can route LLM tasks through the local Codex CLI without using an SDK.
+
+```bash
+npm i -g @openai/codex
+codex login
+```
+
+Set `CODEX_BIN` in `.env.local` only if `codex` is not on PATH. Post images are generated through Codex CLI image generation and saved under `public/generated`.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

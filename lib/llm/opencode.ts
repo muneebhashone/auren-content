@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import type { CallOptions, CallResult, ChatMessage } from "./types";
+import { needsWindowsShell } from "./cli-spawn";
 
 function getBin(): string {
   return process.env.OPENCODE_BIN || "opencode";
@@ -94,7 +95,10 @@ export async function callOpenCode(
   return new Promise<CallResult<string>>((resolve, reject) => {
     let stdout = "";
     let stderr = "";
-    const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(bin, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: needsWindowsShell(bin),
+    });
 
     child.on("error", (err) => {
       reject(

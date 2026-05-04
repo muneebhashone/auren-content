@@ -2,7 +2,7 @@ import { db } from "@/lib/db/client";
 import { settings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
-import type { LlmProvider, TaskRouting } from "./types";
+import type { CodexReasoningEffort, LlmProvider, TaskRouting } from "./types";
 
 export type LlmTask =
   | "research"
@@ -38,6 +38,10 @@ const SETTINGS_KEY = "model_overrides";
 
 type StoredOverrides = Partial<Record<LlmTask, TaskRouting | string>>;
 
+function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
+  return value === "low" || value === "medium" || value === "high" || value === "xhigh";
+}
+
 function normalize(
   raw: StoredOverrides
 ): Partial<Record<LlmTask, TaskRouting>> {
@@ -53,9 +57,17 @@ function normalize(
       value &&
       typeof value === "object" &&
       typeof value.model === "string" &&
-      (value.provider === "openrouter" || value.provider === "opencode")
+      (value.provider === "openrouter" ||
+        value.provider === "opencode" ||
+        value.provider === "codex")
     ) {
-      out[task] = { provider: value.provider, model: value.model };
+      out[task] = {
+        provider: value.provider,
+        model: value.model,
+        ...(value.provider === "codex" && isCodexReasoningEffort(value.reasoningEffort)
+          ? { reasoningEffort: value.reasoningEffort }
+          : {}),
+      };
     }
   }
   return out;

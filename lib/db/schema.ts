@@ -95,6 +95,9 @@ export const posts = sqliteTable("posts", {
   // JSON array of strings
   hashtagsJson: text("hashtags_json").notNull().default("[]"),
   imagePrompt: text("image_prompt").notNull().default(""),
+  imageUrl: text("image_url").notNull().default(""),
+  imageProvider: text("image_provider").notNull().default(""),
+  imageGeneratedAt: text("image_generated_at"),
   // [{hook, reasoning}]
   altHooksJson: text("alt_hooks_json").notNull().default("[]"),
   // structured rationale: {hookStrategy, audience, slotReasoning, viralityLever, expectedOutcome}

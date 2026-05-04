@@ -10,11 +10,13 @@ import {
   Trash2,
   Copy,
   CheckCircle2,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   updateStatus,
   deletePost,
+  generateImage,
 } from "@/app/(dashboard)/posts/[id]/actions";
 
 export function PostActions({
@@ -22,15 +24,18 @@ export function PostActions({
   hook,
   body,
   hashtags,
+  hasImagePrompt,
 }: {
   postId: number;
   hook: string;
   body: string;
   hashtags: string[];
+  hasImagePrompt: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [regenerating, setRegenerating] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
   const [copied, setCopied] = useState(false);
 
   function setStatus(status: "approved" | "posted" | "logged") {
@@ -64,6 +69,18 @@ export function PostActions({
       setTimeout(() => setCopied(false), 1600);
     } catch {
       alert("Copy failed");
+    }
+  }
+
+  async function onGenerateImage() {
+    setGeneratingImage(true);
+    try {
+      await generateImage(postId);
+      router.refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setGeneratingImage(false);
     }
   }
 
@@ -119,6 +136,18 @@ export function PostActions({
           <Copy className="h-4 w-4" />
         )}
         {copied ? "Copied" : "Copy"}
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={onGenerateImage}
+        disabled={!hasImagePrompt || generatingImage || pending}
+      >
+        {generatingImage ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <ImageIcon className="h-4 w-4" />
+        )}
+        {generatingImage ? "Generating image" : "Generate image"}
       </Button>
       <div className="ml-auto">
         <Button variant="danger" onClick={onDelete} disabled={pending}>

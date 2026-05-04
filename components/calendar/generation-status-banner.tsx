@@ -44,19 +44,14 @@ function formatElapsed(ms: number): string {
 export function GenerationStatusBanner({ isoWeek }: { isoWeek: string }) {
   const router = useRouter();
   const [job, setJob] = React.useState<JobPayload | null>(null);
-  const [dismissed, setDismissed] = React.useState(false);
+  const [dismissedWeek, setDismissedWeek] = React.useState<string | null>(null);
   const lastStatusRef = React.useRef<string | null>(null);
-
-  // Reset dismissal when the week changes.
-  React.useEffect(() => {
-    setDismissed(false);
-    setJob(null);
-    lastStatusRef.current = null;
-  }, [isoWeek]);
+  const dismissed = dismissedWeek === isoWeek;
 
   React.useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    lastStatusRef.current = null;
 
     async function tick() {
       try {
@@ -96,13 +91,14 @@ export function GenerationStatusBanner({ isoWeek }: { isoWeek: string }) {
     };
   }, [isoWeek, router]);
 
-  if (!job || dismissed) return null;
-
-  // Hide finished banners after the linger window, except for failures (those
-  // stay until the user dismisses).
-  if (job.status === "succeeded") {
-    const since = Date.now() - (job.finishedAt ? Date.parse(job.finishedAt) : 0);
-    if (since > FINISHED_LINGER_MS) return null;
+  if (!job || dismissed || job.isoWeek !== isoWeek) return null;
+  if (job.status === "succeeded" && job.finishedAt) {
+    const finishedAt = Date.parse(job.finishedAt);
+    const updatedAt = Date.parse(job.updatedAt);
+    if (Number.isFinite(finishedAt) && Number.isFinite(updatedAt)) {
+      const since = updatedAt - finishedAt;
+      if (since > FINISHED_LINGER_MS) return null;
+    }
   }
 
   const isRunning = job.status === "running";
@@ -182,7 +178,7 @@ export function GenerationStatusBanner({ isoWeek }: { isoWeek: string }) {
       {!isRunning && (
         <button
           type="button"
-          onClick={() => setDismissed(true)}
+          onClick={() => setDismissedWeek(isoWeek)}
           className="text-xs text-fg-muted hover:text-fg"
         >
           Dismiss

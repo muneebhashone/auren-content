@@ -3,16 +3,19 @@
 import * as React from "react";
 import { Select } from "@/components/ui/select";
 import type { LlmModelInfo } from "@/lib/llm/models";
-import type { LlmProvider } from "@/lib/llm/types";
+import type { CodexReasoningEffort, LlmProvider } from "@/lib/llm/types";
 
 interface Props {
   task: string;
   initialProvider: LlmProvider;
   initialModel: string;
+  initialReasoningEffort: CodexReasoningEffort | "";
   defaultLabel: string;
   openRouterModels: LlmModelInfo[];
   openCodeModels: LlmModelInfo[];
+  codexModels: LlmModelInfo[];
   openCodeAvailable: boolean;
+  codexAvailable: boolean;
 }
 
 const ALL_VENDORS = "__all__";
@@ -26,27 +29,28 @@ export function TaskRoutingRow({
   task,
   initialProvider,
   initialModel,
+  initialReasoningEffort,
   defaultLabel,
   openRouterModels,
   openCodeModels,
+  codexModels,
   openCodeAvailable,
+  codexAvailable,
 }: Props) {
   const [provider, setProvider] = React.useState<LlmProvider>(initialProvider);
   const [model, setModel] = React.useState<string>(initialModel);
   const [vendor, setVendor] = React.useState<string>(
     initialModel ? vendorOf(initialModel) : ALL_VENDORS
   );
+  const [reasoningEffort, setReasoningEffort] =
+    React.useState<CodexReasoningEffort | "">(initialReasoningEffort);
 
-  // Sync state when the persisted props change (e.g. after a server-action
-  // save + revalidatePath returns new override values from the DB). Without
-  // this, useState holds the pre-save value and the form appears "reset".
-  React.useEffect(() => {
-    setProvider(initialProvider);
-    setModel(initialModel);
-    setVendor(initialModel ? vendorOf(initialModel) : ALL_VENDORS);
-  }, [initialProvider, initialModel]);
-
-  const allModels = provider === "openrouter" ? openRouterModels : openCodeModels;
+  const allModels =
+    provider === "openrouter"
+      ? openRouterModels
+      : provider === "opencode"
+        ? openCodeModels
+        : codexModels;
 
   const vendors = React.useMemo(() => {
     const set = new Set<string>();
@@ -72,6 +76,7 @@ export function TaskRoutingRow({
     setProvider(next);
     setVendor(ALL_VENDORS);
     setModel("");
+    if (next !== "codex") setReasoningEffort("");
   };
 
   const onVendorChange = (next: string) => {
@@ -92,6 +97,9 @@ export function TaskRoutingRow({
         <option value="openrouter">OpenRouter</option>
         <option value="opencode" disabled={!openCodeAvailable}>
           OpenCode {openCodeAvailable ? "" : "(unavailable)"}
+        </option>
+        <option value="codex" disabled={!codexAvailable}>
+          Codex CLI {codexAvailable ? "" : "(unavailable)"}
         </option>
       </Select>
       <Select
@@ -119,6 +127,22 @@ export function TaskRoutingRow({
           </option>
         ))}
       </Select>
+      {provider === "codex" ? (
+        <Select
+          name={`override:${task}:reasoning`}
+          value={reasoningEffort}
+          onChange={(e) =>
+            setReasoningEffort(e.target.value as CodexReasoningEffort | "")
+          }
+          className="text-xs"
+        >
+          <option value="">Default reasoning</option>
+          <option value="low">Low reasoning</option>
+          <option value="medium">Medium reasoning</option>
+          <option value="high">High reasoning</option>
+          <option value="xhigh">Extra high reasoning</option>
+        </Select>
+      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   researchSignals,
   weeklyBriefs,
 } from "@/lib/db/schema";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { desc, eq, ne } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
 import { callLLMJson } from "@/lib/llm";
 import {
