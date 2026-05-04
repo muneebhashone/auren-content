@@ -48,7 +48,7 @@ Return ONLY a JSON object:
   "hook": "<the opening line — the strongest single sentence>",
   "body": "<the rest of the post, EXCLUDING the hook>",
   "hashtags": ["#tag", ...],
-  "image_prompt": "<one-sentence prompt for an image generator, or empty string if no image is needed>",
+  "image_prompt": "<detailed gpt-image-2 prompt for an image generator, or empty string if no image is needed>",
   "used_signal_ids": [<signal id>, ...]
 }
 
@@ -60,6 +60,8 @@ General rules:
 - Hooks should make a stranger stop scrolling: specifics, contrarian takes, real numbers, or named tradeoffs.
 - Do not invent statistics. If you cite a number, it must come from a signal in the input or be hedged ("around", "roughly").
 - used_signal_ids must list any signal you actually drew on. Empty array if none.
+- When image_prompt is useful, write it as a detailed gpt-image-2 prompt, not a short caption. Include the intended use as a social post image, visual medium or style, subject, setting/background, composition/framing, lighting/mood, color palette, key details, and explicit constraints such as "no watermark" and "no extra text" unless the post needs text in the image.
+- Every non-empty image_prompt must explicitly include both an aspect ratio and pixel size. Prefer "Aspect ratio: 4:5. Size: 1024x1280 px" for LinkedIn feed posts and "Aspect ratio: 16:9. Size: 1536x864 px" for X posts unless the post clearly needs square framing. The size must be valid for gpt-image-2: both edges are multiples of 16, under 3840 px, within a 3:1 long-to-short edge ratio, and suitable for a polished social image.
 - NEVER use em dashes (—) or en dashes (–) anywhere in the output. Use a period, comma, colon, or line break instead. Hyphens (-) inside compound words are fine.`;
 
   const signalsText = input.signals.length
