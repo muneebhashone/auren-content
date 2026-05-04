@@ -137,18 +137,20 @@ export function PostActions({
         )}
         {copied ? "Copied" : "Copy"}
       </Button>
-      <Button
-        variant="secondary"
-        onClick={onGenerateImage}
-        disabled={!hasImagePrompt || generatingImage || pending}
-      >
-        {generatingImage ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <ImageIcon className="h-4 w-4" />
-        )}
-        {generatingImage ? "Generating image" : "Generate image"}
-      </Button>
+      {hasImagePrompt ? (
+        <Button
+          variant="secondary"
+          onClick={onGenerateImage}
+          disabled={generatingImage || pending}
+        >
+          {generatingImage ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4" />
+          )}
+          {generatingImage ? "Generating image" : "Generate image"}
+        </Button>
+      ) : null}
       <div className="ml-auto">
         <Button variant="danger" onClick={onDelete} disabled={pending}>
           <Trash2 className="h-4 w-4" />

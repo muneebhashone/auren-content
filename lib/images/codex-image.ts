@@ -38,7 +38,7 @@ export async function generatePostImageWithCodex({
     const generated = await findGeneratedImage(outDir, returned);
     const ext = extname(generated).toLowerCase();
     const publicDir = join(
-      /* turbopackIgnore: true */ process.cwd(),
+      /*turbopackIgnore: true*/ process.cwd(),
       "public",
       "generated"
     );

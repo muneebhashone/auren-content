@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn, safeJson } from "@/lib/utils";
@@ -81,6 +82,21 @@ export function PostCard({
       >
         {post.hook || "(no hook yet)"}
       </div>
+      {post.imageUrl ? (
+        <div className="mt-2 overflow-hidden rounded border border-border bg-bg">
+          <Image
+            src={post.imageUrl}
+            alt={post.imagePrompt || "Generated post image"}
+            width={640}
+            height={640}
+            sizes={density === "calendar" ? "220px" : "320px"}
+            className={cn(
+              "w-full object-cover",
+              density === "calendar" ? "h-24" : "h-32"
+            )}
+          />
+        </div>
+      ) : null}
       {peek ? (
         <div
           className={cn(

@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import Image from "next/image";
 import { eq, inArray } from "drizzle-orm";
 import {
   personas,
@@ -212,10 +213,12 @@ export async function PostDetailView({ post }: { post: Post }) {
             Generated image
           </h2>
           <div className="overflow-hidden rounded-md border border-border bg-bg-elevated">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={post.imageUrl}
-              alt=""
+              alt={post.imagePrompt || "Generated post image"}
+              width={1200}
+              height={1200}
+              sizes="(max-width: 768px) 100vw, 960px"
               className="max-h-[640px] w-full object-contain"
             />
           </div>
