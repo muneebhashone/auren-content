@@ -55,6 +55,31 @@ const TASK_HELP: Record<LlmTask, string> = {
 
 export const dynamic = "force-dynamic";
 
+function ProviderStatusCard({
+  name,
+  configured,
+  unavailableLabel = "Unavailable",
+}: {
+  name: string;
+  configured: boolean;
+  unavailableLabel?: string;
+}) {
+  return (
+    <div className="flex min-h-[88px] flex-col justify-between rounded-md border border-border bg-bg-elevated p-4">
+      <CardTitle className="text-sm">{name}</CardTitle>
+      {configured ? (
+        <Badge variant="accent" className="self-start">
+          Configured
+        </Badge>
+      ) : (
+        <Badge variant="warning" className="self-start">
+          {unavailableLabel}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 export default async function SettingsPage() {
   const hasKey = Boolean(process.env.OPENROUTER_API_KEY);
   const [overrides, openRouter, openCode, codex, concurrency] = await Promise.all([
@@ -73,125 +98,22 @@ export default async function SettingsPage() {
       />
 
       <Card>
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <CardTitle>OpenRouter</CardTitle>
-            <CardDescription>
-              HTTP API. Key powers all OpenRouter-routed tasks.
-            </CardDescription>
-          </div>
-          {hasKey ? (
-            <Badge variant="accent">Configured</Badge>
-          ) : (
-            <Badge variant="warning">Not set</Badge>
-          )}
+        <CardHeader>
+          <CardTitle>Providers</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm text-fg-muted">
-          <p>
-            Set <code className="font-mono text-fg">OPENROUTER_API_KEY</code> in{" "}
-            <code className="font-mono text-fg">.env.local</code> at the repo
-            root, then restart the dev server. The key is never displayed here.
-          </p>
-          {!openRouter.available && hasKey && (
-            <p className="text-warning">
-              Model list unavailable: {openRouter.error}
-            </p>
-          )}
-          <a
-            href="https://openrouter.ai/"
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent hover:underline self-start text-sm"
-          >
-            openrouter.ai
-          </a>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <CardTitle>Codex CLI</CardTitle>
-            <CardDescription>
-              Local <code className="font-mono">codex</code> binary. Uses
-              Codex CLI directly; no SDK.
-            </CardDescription>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <ProviderStatusCard
+              name="OpenRouter"
+              configured={hasKey}
+              unavailableLabel="Not set"
+            />
+            <ProviderStatusCard name="Codex CLI" configured={codex.available} />
+            <ProviderStatusCard
+              name="OpenCode CLI"
+              configured={openCode.available}
+            />
           </div>
-          {codex.available ? (
-            <Badge variant="accent">Configured</Badge>
-          ) : (
-            <Badge variant="warning">Unavailable</Badge>
-          )}
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm text-fg-muted">
-          {codex.available ? (
-            <p>
-              {codex.models.length} models discovered via{" "}
-              <code className="font-mono">codex debug models</code>.
-            </p>
-          ) : (
-            <p>
-              CLI not reachable. Install{" "}
-              <a
-                href="https://developers.openai.com/codex/cli"
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent hover:underline"
-              >
-                Codex CLI
-              </a>
-              , run <code className="font-mono">codex login</code> once, and
-              ensure it&apos;s on PATH (or set{" "}
-              <code className="font-mono">CODEX_BIN</code>).{" "}
-              {codex.error && (
-                <span className="text-warning">({codex.error})</span>
-              )}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <CardTitle>OpenCode CLI</CardTitle>
-            <CardDescription>
-              Local <code className="font-mono">opencode</code> binary.
-              Subscription auth via{" "}
-              <code className="font-mono">opencode auth login</code>.
-            </CardDescription>
-          </div>
-          {openCode.available ? (
-            <Badge variant="accent">Configured</Badge>
-          ) : (
-            <Badge variant="warning">Unavailable</Badge>
-          )}
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm text-fg-muted">
-          {openCode.available ? (
-            <p>
-              {openCode.models.length} models discovered via{" "}
-              <code className="font-mono">opencode models</code>.
-            </p>
-          ) : (
-            <p>
-              CLI not reachable. Install{" "}
-              <a
-                href="https://opencode.ai/docs/cli/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent hover:underline"
-              >
-                opencode
-              </a>
-              , run <code className="font-mono">opencode auth login</code> once,
-              and ensure it&apos;s on PATH (or set{" "}
-              <code className="font-mono">OPENCODE_BIN</code>).{" "}
-              {openCode.error && (
-                <span className="text-warning">({openCode.error})</span>
-              )}
-            </p>
-          )}
         </CardContent>
       </Card>
 
