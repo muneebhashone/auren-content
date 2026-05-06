@@ -47,6 +47,7 @@ export async function callClaudeCode(
   }
 
   const bin = getBin();
+  const tools = opts.task === "research" ? "WebSearch" : "";
   const args = [
     "--print",
     "--output-format",
@@ -54,7 +55,7 @@ export async function callClaudeCode(
     "--no-session-persistence",
     "--disable-slash-commands",
     "--tools",
-    "",
+    tools,
     "--model",
     model,
     ...(effort ? ["--effort", effort] : []),
