@@ -151,6 +151,24 @@ export const generationJobs = sqliteTable("generation_jobs", {
   finishedAt: text("finished_at"),
 });
 
+export const rewrites = sqliteTable("rewrites", {
+  id: id(),
+  dump: text("dump").notNull(),
+  // FK to personas.id; SET NULL on delete so deleting a persona doesn't wipe rewrites
+  personaId: integer("persona_id").references(() => personas.id, {
+    onDelete: "set null",
+  }),
+  // snapshot of persona name at generation time, in case persona is deleted/renamed
+  personaName: text("persona_name").notNull().default(""),
+  factCheck: integer("fact_check", { mode: "boolean" }).notNull().default(false),
+  // { linkedin: { polished: {hook,body,hashtags}, faithful: {...} }, x: { polished: {...}, faithful: {...} } }
+  variantsJson: text("variants_json").notNull().default("{}"),
+  // [{ summary, sourceUrl }]
+  signalsJson: text("signals_json").notNull().default("[]"),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   // arbitrary JSON value
@@ -168,3 +186,4 @@ export type RationaleCitation = typeof rationaleCitations.$inferSelect;
 export type PerformanceRecord = typeof performanceRecords.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type GenerationJob = typeof generationJobs.$inferSelect;
+export type Rewrite = typeof rewrites.$inferSelect;

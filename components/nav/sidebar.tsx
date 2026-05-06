@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const groups: { label: string; items: { href: string; label: string; icon: React
     label: "Content",
     items: [
       { href: "/", label: "Calendar", icon: Calendar },
+      { href: "/rewrite", label: "Rewrite", icon: Wand2 },
       { href: "/performance", label: "Performance", icon: BarChart3 },
     ],
   },
