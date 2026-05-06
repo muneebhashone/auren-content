@@ -22,6 +22,7 @@ interface CacheEntry {
 let openRouterCache: CacheEntry | null = null;
 let openCodeCache: CacheEntry | null = null;
 let codexCache: CacheEntry | null = null;
+let claudeCodeCache: CacheEntry | null = null;
 
 function fresh(entry: CacheEntry | null): boolean {
   return !!entry && Date.now() - entry.at < TTL_MS;
@@ -207,8 +208,81 @@ export async function listCodexModels(): Promise<ModelListResult> {
   return result;
 }
 
+export async function listClaudeCodeModels(): Promise<ModelListResult> {
+  if (fresh(claudeCodeCache)) return claudeCodeCache!.result;
+
+  const bin = process.env.CLAUDE_CODE_BIN || "claude";
+  const result = await new Promise<ModelListResult>((resolve) => {
+    let stderr = "";
+    let settled = false;
+    const child = spawn(bin, ["auth", "status", "--text"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: needsWindowsShell(bin),
+    });
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        child.kill();
+      } catch {}
+      resolve({
+        models: configuredClaudeModels(),
+        available: false,
+        error: "claude auth status timed out after 10s",
+      });
+    }, 10_000);
+
+    child.stderr.on("data", (c: Buffer) => {
+      stderr += c.toString("utf8");
+    });
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({
+        models: configuredClaudeModels(),
+        available: false,
+        error: `spawn failed: ${err.message}`,
+      });
+    });
+    child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({
+        models: configuredClaudeModels(),
+        available: code === 0,
+        ...(code === 0 ? {} : { error: `exit ${code}: ${stderr.trim() || "(empty)"}` }),
+      });
+    });
+  });
+  claudeCodeCache = { at: Date.now(), result };
+  return result;
+}
+
 function fallbackCodexModels(): LlmModelInfo[] {
   return ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.3-codex-spark"].map(
     (id) => ({ id, name: id })
   );
+}
+
+function configuredClaudeModels(): LlmModelInfo[] {
+  const fromEnv = process.env.CLAUDE_CODE_MODELS?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const ids = fromEnv?.length
+    ? fromEnv
+    : [
+        "default",
+        "best",
+        "sonnet",
+        "opus",
+        "haiku",
+        "sonnet[1m]",
+        "opus[1m]",
+        "opusplan",
+        "claude-sonnet-4-6",
+        "claude-opus-4-7",
+      ];
+  return Array.from(new Set(ids)).map((id) => ({ id, name: id }));
 }

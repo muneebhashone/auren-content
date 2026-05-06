@@ -2,7 +2,12 @@ import { db } from "@/lib/db/client";
 import { settings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
-import type { CodexReasoningEffort, LlmProvider, TaskRouting } from "./types";
+import type {
+  ClaudeEffort,
+  CodexReasoningEffort,
+  LlmProvider,
+  TaskRouting,
+} from "./types";
 
 export type LlmTask =
   | "research"
@@ -42,6 +47,16 @@ function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
   return value === "low" || value === "medium" || value === "high" || value === "xhigh";
 }
 
+function isClaudeEffort(value: unknown): value is ClaudeEffort {
+  return (
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "xhigh" ||
+    value === "max"
+  );
+}
+
 function normalize(
   raw: StoredOverrides
 ): Partial<Record<LlmTask, TaskRouting>> {
@@ -59,13 +74,17 @@ function normalize(
       typeof value.model === "string" &&
       (value.provider === "openrouter" ||
         value.provider === "opencode" ||
-        value.provider === "codex")
+        value.provider === "codex" ||
+        value.provider === "claude")
     ) {
       out[task] = {
         provider: value.provider,
         model: value.model,
         ...(value.provider === "codex" && isCodexReasoningEffort(value.reasoningEffort)
           ? { reasoningEffort: value.reasoningEffort }
+          : {}),
+        ...(value.provider === "claude" && isClaudeEffort(value.claudeEffort)
+          ? { claudeEffort: value.claudeEffort }
           : {}),
       };
     }

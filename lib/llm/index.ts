@@ -2,6 +2,7 @@ import { getRoutingForTask } from "./router";
 import { callOpenRouter } from "./openrouter";
 import { callOpenCode } from "./opencode";
 import { callCodex } from "./codex";
+import { callClaudeCode } from "./claude-code";
 import type { CallOptions, CallResult, ChatMessage } from "./types";
 
 export type { ChatMessage, CallOptions, CallResult, LlmProvider, TaskRouting } from "./types";
@@ -29,6 +30,7 @@ export async function callLLM(
   const provider = opts.providerOverride ?? routing.provider;
   const model = opts.modelOverride ?? routing.model;
   const reasoningEffort = opts.reasoningEffortOverride ?? routing.reasoningEffort;
+  const claudeEffort = opts.claudeEffortOverride ?? routing.claudeEffort;
 
   const optsWithDate: CallOptions = {
     ...opts,
@@ -40,6 +42,9 @@ export async function callLLM(
   }
   if (provider === "codex") {
     return callCodex(optsWithDate, model, reasoningEffort);
+  }
+  if (provider === "claude") {
+    return callClaudeCode(optsWithDate, model, claudeEffort);
   }
   return callOpenRouter(optsWithDate, model);
 }

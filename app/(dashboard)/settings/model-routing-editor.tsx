@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { LlmModelInfo } from "@/lib/llm/models";
 import type { LlmTask } from "@/lib/llm/router";
-import type { CodexReasoningEffort, LlmProvider, TaskRouting } from "@/lib/llm/types";
+import type {
+  ClaudeEffort,
+  CodexReasoningEffort,
+  LlmProvider,
+  TaskRouting,
+} from "@/lib/llm/types";
 import { cn } from "@/lib/utils";
 
 type TaskMeta = {
@@ -21,6 +26,7 @@ type ModelGroup = {
   provider: LlmProvider;
   model: string;
   reasoningEffort: CodexReasoningEffort | "";
+  claudeEffort: ClaudeEffort | "";
   tasks: LlmTask[];
 };
 
@@ -30,8 +36,10 @@ interface Props {
   openRouterModels: LlmModelInfo[];
   openCodeModels: LlmModelInfo[];
   codexModels: LlmModelInfo[];
+  claudeModels: LlmModelInfo[];
   openCodeAvailable: boolean;
   codexAvailable: boolean;
+  claudeAvailable: boolean;
 }
 
 const ALL_VENDORS = "__all__";
@@ -44,11 +52,12 @@ function vendorOf(modelId: string): string {
 function providerLabel(provider: LlmProvider): string {
   if (provider === "openrouter") return "OpenRouter";
   if (provider === "opencode") return "OpenCode";
-  return "Codex CLI";
+  if (provider === "codex") return "Codex CLI";
+  return "Claude Code";
 }
 
 function routeKey(route: TaskRouting): string {
-  return `${route.provider}:${route.model}:${route.reasoningEffort ?? ""}`;
+  return `${route.provider}:${route.model}:${route.reasoningEffort ?? ""}:${route.claudeEffort ?? ""}`;
 }
 
 function createInitialGroups(
@@ -69,6 +78,7 @@ function createInitialGroups(
         provider: route.provider,
         model: route.model,
         reasoningEffort: route.reasoningEffort ?? "",
+        claudeEffort: route.claudeEffort ?? "",
         tasks: [task],
       });
     }
@@ -86,8 +96,10 @@ export function ModelRoutingEditor({
   openRouterModels,
   openCodeModels,
   codexModels,
+  claudeModels,
   openCodeAvailable,
   codexAvailable,
+  claudeAvailable,
 }: Props) {
   const taskOrder = React.useMemo(() => tasks.map((item) => item.task), [tasks]);
   const [groups, setGroups] = React.useState<ModelGroup[]>(() =>
@@ -102,7 +114,9 @@ export function ModelRoutingEditor({
       ? openRouterModels
       : provider === "opencode"
         ? openCodeModels
-        : codexModels;
+        : provider === "codex"
+          ? codexModels
+          : claudeModels;
 
   const vendors = React.useMemo(() => {
     const set = new Set<string>();
@@ -128,7 +142,8 @@ export function ModelRoutingEditor({
     model.length > 0 &&
     (provider === "openrouter" ||
       (provider === "opencode" && openCodeAvailable) ||
-      (provider === "codex" && codexAvailable));
+      (provider === "codex" && codexAvailable) ||
+      (provider === "claude" && claudeAvailable));
 
   const onProviderChange = (next: LlmProvider) => {
     setProvider(next);
@@ -151,7 +166,8 @@ export function ModelRoutingEditor({
           (group) =>
             group.provider === provider &&
             group.model === model &&
-            group.reasoningEffort === ""
+            group.reasoningEffort === "" &&
+            group.claudeEffort === ""
         )
       ) {
         return current;
@@ -163,6 +179,7 @@ export function ModelRoutingEditor({
           provider,
           model,
           reasoningEffort: "",
+          claudeEffort: "",
           tasks: [],
         },
       ];
@@ -181,6 +198,14 @@ export function ModelRoutingEditor({
     setGroups((current) =>
       current.map((group) =>
         group.id === groupId ? { ...group, reasoningEffort } : group
+      )
+    );
+  };
+
+  const setClaudeEffort = (groupId: string, claudeEffort: ClaudeEffort | "") => {
+    setGroups((current) =>
+      current.map((group) =>
+        group.id === groupId ? { ...group, claudeEffort } : group
       )
     );
   };
@@ -222,6 +247,13 @@ export function ModelRoutingEditor({
                 type="hidden"
                 name={`override:${task}:reasoning`}
                 value={group.reasoningEffort}
+              />
+            ) : null}
+            {group.provider === "claude" && group.claudeEffort ? (
+              <input
+                type="hidden"
+                name={`override:${task}:claudeEffort`}
+                value={group.claudeEffort}
               />
             ) : null}
           </React.Fragment>
@@ -272,6 +304,9 @@ export function ModelRoutingEditor({
           </option>
           <option value="codex" disabled={!codexAvailable}>
             Codex CLI {codexAvailable ? "" : "(unavailable)"}
+          </option>
+          <option value="claude" disabled={!claudeAvailable}>
+            Claude Code {claudeAvailable ? "" : "(unavailable)"}
           </option>
         </Select>
         <Select
@@ -341,6 +376,24 @@ export function ModelRoutingEditor({
                       <option value="medium">Medium reasoning</option>
                       <option value="high">High reasoning</option>
                       <option value="xhigh">Extra high reasoning</option>
+                    </Select>
+                  ) : group.provider === "claude" ? (
+                    <Select
+                      value={group.claudeEffort}
+                      onChange={(event) =>
+                        setClaudeEffort(
+                          group.id,
+                          event.target.value as ClaudeEffort | ""
+                        )
+                      }
+                      className="w-[190px] text-xs"
+                    >
+                      <option value="">Default effort</option>
+                      <option value="low">Low effort</option>
+                      <option value="medium">Medium effort</option>
+                      <option value="high">High effort</option>
+                      <option value="xhigh">Extra high effort</option>
+                      <option value="max">Max effort</option>
                     </Select>
                   ) : null}
                   <Button

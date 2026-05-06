@@ -6,6 +6,7 @@ import {
   type LlmTask,
 } from "@/lib/llm/router";
 import type {
+  ClaudeEffort,
   CodexReasoningEffort,
   LlmProvider,
   TaskRouting,
@@ -27,7 +28,14 @@ const TASKS: LlmTask[] = [
 
 function parseProvider(raw: FormDataEntryValue | null): LlmProvider | null {
   if (typeof raw !== "string") return null;
-  if (raw === "openrouter" || raw === "opencode" || raw === "codex") return raw;
+  if (
+    raw === "openrouter" ||
+    raw === "opencode" ||
+    raw === "codex" ||
+    raw === "claude"
+  ) {
+    return raw;
+  }
   return null;
 }
 
@@ -36,6 +44,20 @@ function parseReasoningEffort(
 ): CodexReasoningEffort | undefined {
   if (typeof raw !== "string") return undefined;
   if (raw === "low" || raw === "medium" || raw === "high" || raw === "xhigh") {
+    return raw;
+  }
+  return undefined;
+}
+
+function parseClaudeEffort(raw: FormDataEntryValue | null): ClaudeEffort | undefined {
+  if (typeof raw !== "string") return undefined;
+  if (
+    raw === "low" ||
+    raw === "medium" ||
+    raw === "high" ||
+    raw === "xhigh" ||
+    raw === "max"
+  ) {
     return raw;
   }
   return undefined;
@@ -51,10 +73,14 @@ export async function saveOverridesAction(formData: FormData) {
       const reasoningEffort = parseReasoningEffort(
         formData.get(`override:${task}:reasoning`)
       );
+      const claudeEffort = parseClaudeEffort(
+        formData.get(`override:${task}:claudeEffort`)
+      );
       overrides[task] = {
         provider,
         model,
         ...(provider === "codex" && reasoningEffort ? { reasoningEffort } : {}),
+        ...(provider === "claude" && claudeEffort ? { claudeEffort } : {}),
       };
     }
   }

@@ -1,12 +1,14 @@
 import type { LlmTask } from "./router";
 
-export type LlmProvider = "openrouter" | "opencode" | "codex";
+export type LlmProvider = "openrouter" | "opencode" | "codex" | "claude";
 export type CodexReasoningEffort = "low" | "medium" | "high" | "xhigh";
+export type ClaudeEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface TaskRouting {
   provider: LlmProvider;
   model: string;
   reasoningEffort?: CodexReasoningEffort;
+  claudeEffort?: ClaudeEffort;
 }
 
 export type ChatMessage =
@@ -34,6 +36,8 @@ export interface CallOptions {
   providerOverride?: LlmProvider;
   /** Override Codex CLI reasoning effort. Ignored by non-Codex providers. */
   reasoningEffortOverride?: CodexReasoningEffort;
+  /** Override Claude Code CLI effort. Ignored by non-Claude providers. */
+  claudeEffortOverride?: ClaudeEffort;
   /** Extra OpenRouter routing flags. Ignored by CLI providers. */
   providerHints?: Record<string, unknown>;
   /** Extra top-level fields merged into the OpenRouter request body (e.g. Perplexity's `search_recency_filter`). Ignored by CLI providers. */

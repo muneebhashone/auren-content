@@ -27,6 +27,17 @@ codex login
 
 Set `CODEX_BIN` in `.env.local` only if `codex` is not on PATH. Post images are generated through Codex CLI image generation and saved under `public/generated`.
 
+## Claude Code CLI provider
+
+This app can also route text-generation tasks through the local Claude Code CLI without using an SDK.
+
+```bash
+claude auth login
+claude auth status --text
+```
+
+Set `CLAUDE_CODE_BIN` in `.env.local` only if `claude` is not on PATH. Settings shows the documented Claude Code model aliases by default; set `CLAUDE_CODE_MODELS` to a comma-separated list to override them.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

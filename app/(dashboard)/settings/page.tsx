@@ -7,6 +7,7 @@ import {
   listOpenRouterModels,
   listOpenCodeModels,
   listCodexModels,
+  listClaudeCodeModels,
 } from "@/lib/llm/models";
 import {
   Card,
@@ -82,13 +83,15 @@ function ProviderStatusCard({
 
 export default async function SettingsPage() {
   const hasKey = Boolean(process.env.OPENROUTER_API_KEY);
-  const [overrides, openRouter, openCode, codex, concurrency] = await Promise.all([
-    getAllRoutingOverrides(),
-    listOpenRouterModels(),
-    listOpenCodeModels(),
-    listCodexModels(),
-    getGenerationConcurrency(),
-  ]);
+  const [overrides, openRouter, openCode, codex, claude, concurrency] =
+    await Promise.all([
+      getAllRoutingOverrides(),
+      listOpenRouterModels(),
+      listOpenCodeModels(),
+      listCodexModels(),
+      listClaudeCodeModels(),
+      getGenerationConcurrency(),
+    ]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -113,6 +116,10 @@ export default async function SettingsPage() {
               name="OpenCode CLI"
               configured={openCode.available}
             />
+            <ProviderStatusCard
+              name="Claude Code CLI"
+              configured={claude.available}
+            />
           </div>
         </CardContent>
       </Card>
@@ -136,8 +143,10 @@ export default async function SettingsPage() {
               openRouterModels={openRouter.models}
               openCodeModels={openCode.models}
               codexModels={codex.models}
+              claudeModels={claude.models}
               openCodeAvailable={openCode.available}
               codexAvailable={codex.available}
+              claudeAvailable={claude.available}
             />
             <div className="flex items-center gap-2">
               <Button type="submit" variant="default">
