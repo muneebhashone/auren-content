@@ -14,6 +14,7 @@ import {
   type WriterOutput,
   type WriterInput,
 } from "@/lib/llm/prompts/writer";
+import { sanitizeForPlatform } from "@/lib/generation/text-sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,9 +25,14 @@ const bodySchema = z.object({
   factCheck: z.boolean().default(false),
 });
 
-type Variant = { hook: string; body: string; hashtags: string[] };
+type Variant = {
+  hook: string;
+  body: string;
+  hashtags: string[];
+  title?: string;
+};
 type VariantKind = "polished" | "faithful";
-type Platform = "linkedin" | "x";
+type Platform = "linkedin" | "x" | "reddit";
 
 export async function POST(req: NextRequest) {
   let parsed: z.infer<typeof bodySchema>;
@@ -129,13 +135,20 @@ You ARE rewriting this for social. You are NOT pasting it back. The output must 
     "TONE-MATCH MODE for X. Preserve the user's tone, intent, and claims. Rewrite (do NOT paste) into a tight X post: punchy hook line + at most one or two follow-up beats. HARD LIMIT: body must be 270 characters or fewer — count and cut. Use the user's vocabulary and viewpoint, not the persona's voice. The hook should hit harder than the dump's opener but in the user's register.";
   const faithfulAngleLinkedIn =
     "TONE-MATCH MODE for LinkedIn. Preserve the user's tone, intent, and claims. Rewrite (do NOT paste) into a scannable LinkedIn post (600-1400 chars body). Build a real hook line in the user's voice, then break the dump's substance into short scannable lines/paragraphs. Use the user's vocabulary and viewpoint, not the persona's voice.";
+  const faithfulAngleReddit =
+    "TONE-MATCH MODE for Reddit. Preserve the user's tone, intent, and claims. Rewrite (do NOT paste) into a real Reddit post: an informative title (not a clickbait hook) plus a markdown-friendly body. Write as a community member, not a brand. NO hashtags. NO self-promo language. NO 'Hot take:' framings. Use the user's vocabulary and viewpoint.";
+
+  function faithfulAngleFor(platform: Platform): string {
+    if (platform === "x") return faithfulAngleX;
+    if (platform === "linkedin") return faithfulAngleLinkedIn;
+    return faithfulAngleReddit;
+  }
 
   async function writeOne(
     platform: Platform,
     kind: VariantKind
   ): Promise<Variant> {
-    const faithfulAngle =
-      platform === "x" ? faithfulAngleX : faithfulAngleLinkedIn;
+    const faithfulAngle = faithfulAngleFor(platform);
     const resp = await callLLMJson<WriterOutput>({
       task: "write",
       messages: buildWriterPrompt({
@@ -149,24 +162,40 @@ You ARE rewriting this for social. You are NOT pasting it back. The output must 
       }),
       maxTokens: 1200,
     });
+    const rawTitle =
+      platform === "reddit"
+        ? resp.content.title || resp.content.hook
+        : undefined;
+    const cleanTitle = rawTitle ? sanitizeForPlatform(platform, rawTitle) : undefined;
+    const cleanHook = sanitizeForPlatform(platform, resp.content.hook);
     return {
-      hook: resp.content.hook,
-      body: resp.content.body,
-      hashtags: resp.content.hashtags ?? [],
+      hook: platform === "reddit" && cleanTitle ? cleanTitle : cleanHook,
+      body: sanitizeForPlatform(platform, resp.content.body),
+      hashtags: platform === "reddit" ? [] : resp.content.hashtags ?? [],
+      title: cleanTitle,
     };
   }
 
   try {
-    const [linkedinPolished, linkedinFaithful, xPolished, xFaithful] =
-      await Promise.all([
-        writeOne("linkedin", "polished"),
-        writeOne("linkedin", "faithful"),
-        writeOne("x", "polished"),
-        writeOne("x", "faithful"),
-      ]);
+    const [
+      linkedinPolished,
+      linkedinFaithful,
+      xPolished,
+      xFaithful,
+      redditPolished,
+      redditFaithful,
+    ] = await Promise.all([
+      writeOne("linkedin", "polished"),
+      writeOne("linkedin", "faithful"),
+      writeOne("x", "polished"),
+      writeOne("x", "faithful"),
+      writeOne("reddit", "polished"),
+      writeOne("reddit", "faithful"),
+    ]);
     const variants = {
       linkedin: { polished: linkedinPolished, faithful: linkedinFaithful },
       x: { polished: xPolished, faithful: xFaithful },
+      reddit: { polished: redditPolished, faithful: redditFaithful },
     };
     const [inserted] = await db
       .insert(rewrites)

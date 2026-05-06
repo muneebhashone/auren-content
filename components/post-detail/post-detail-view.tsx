@@ -32,6 +32,18 @@ type RationaleShape = {
   expectedOutcome?: string;
 };
 
+function platformBadgeVariant(p: string): "linkedin" | "x" | "reddit" {
+  if (p === "linkedin") return "linkedin";
+  if (p === "reddit") return "reddit";
+  return "x";
+}
+
+function platformDisplayName(p: string): string {
+  if (p === "linkedin") return "LinkedIn";
+  if (p === "reddit") return "Reddit";
+  return "X";
+}
+
 async function loadCitations(postId: number): Promise<CitationSource[]> {
   const rows = await db
     .select()
@@ -178,9 +190,12 @@ export async function PostDetailView({ post }: { post: Post }) {
           <span className="text-sm font-medium">
             {persona?.name ?? "Unknown persona"}
           </span>
-          <Badge variant={post.platform === "linkedin" ? "linkedin" : "x"}>
-            {post.platform === "linkedin" ? "LinkedIn" : "X"}
+          <Badge variant={platformBadgeVariant(post.platform)}>
+            {platformDisplayName(post.platform)}
           </Badge>
+          {post.platform === "reddit" && post.subreddit ? (
+            <Badge variant="muted">{post.subreddit}</Badge>
+          ) : null}
           <Badge
             variant={
               post.status === "posted"

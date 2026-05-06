@@ -26,10 +26,15 @@ export default async function RewritePage() {
     const variants = safeJson<{
       linkedin: REDACTED_NON_SECRET_IDENTIFIER;
       x: REDACTED_NON_SECRET_IDENTIFIER;
+      reddit: REDACTED_NON_SECRET_IDENTIFIER;
     }>(r.variantsJson, {
       linkedin: { polished: emptyVariant(), faithful: emptyVariant() },
       x: { polished: emptyVariant(), faithful: emptyVariant() },
+      reddit: { polished: emptyVariant(), faithful: emptyVariant() },
     });
+    if (!variants.reddit) {
+      variants.reddit = { polished: emptyVariant(), faithful: emptyVariant() };
+    }
     const signals = safeJson<Signal[]>(r.signalsJson, []);
     return {
       id: r.id,
@@ -48,7 +53,7 @@ export default async function RewritePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Rewrite"
-        description="Dump a rough thought; get LinkedIn and X versions in two flavors — polished (persona voice) and faithful (your tone preserved)."
+        description="Dump a rough thought; get LinkedIn, X, and Reddit versions in two flavors — polished (persona voice) and faithful (your tone preserved)."
       />
       {activePersonas.length === 0 ? (
         <div className="text-sm text-fg-muted">

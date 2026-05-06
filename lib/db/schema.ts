@@ -41,10 +41,12 @@ export const personas = sqliteTable("personas", {
   dos: text("dos").notNull().default(""),
   donts: text("donts").notNull().default(""),
   samplePhrases: text("sample_phrases").notNull().default(""),
-  // ["x", "linkedin"]
+  // ["x", "linkedin", "reddit"]
   platformsJson: text("platforms_json").notNull().default("[]"),
-  // {x: 3, linkedin: 2}
+  // {x: 3, linkedin: 2, reddit: 1}
   cadenceJson: text("cadence_json").notNull().default("{}"),
+  // ["r/SaaS", "r/startups"] — only consulted for reddit platform slots
+  subredditsJson: text("subreddits_json").notNull().default("[]"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: ts("created_at"),
 });
@@ -84,7 +86,7 @@ export const posts = sqliteTable("posts", {
   personaId: integer("persona_id")
     .notNull()
     .references(() => personas.id, { onDelete: "restrict" }),
-  // x | linkedin
+  // x | linkedin | reddit
   platform: text("platform").notNull(),
   // ISO timestamp string for the suggested slot
   scheduledFor: text("scheduled_for").notNull(),
@@ -92,6 +94,10 @@ export const posts = sqliteTable("posts", {
   status: text("status").notNull().default("draft"),
   body: text("body").notNull().default(""),
   hook: text("hook").notNull().default(""),
+  // Reddit-only: post title (separate from hook). NULL for x/linkedin.
+  title: text("title"),
+  // Reddit-only: target subreddit (e.g. "r/SaaS"). NULL for x/linkedin.
+  subreddit: text("subreddit"),
   // JSON array of strings
   hashtagsJson: text("hashtags_json").notNull().default("[]"),
   imagePrompt: text("image_prompt").notNull().default(""),
@@ -161,7 +167,7 @@ export const rewrites = sqliteTable("rewrites", {
   // snapshot of persona name at generation time, in case persona is deleted/renamed
   personaName: text("persona_name").notNull().default(""),
   factCheck: integer("fact_check", { mode: "boolean" }).notNull().default(false),
-  // { linkedin: { polished: {hook,body,hashtags}, faithful: {...} }, x: { polished: {...}, faithful: {...} } }
+  // { linkedin: { polished: {hook,body,hashtags}, faithful: {...} }, x: { polished, faithful }, reddit: { polished: {title,body,hashtags}, faithful: {...} } }
   variantsJson: text("variants_json").notNull().default("{}"),
   // [{ summary, sourceUrl }]
   signalsJson: text("signals_json").notNull().default("[]"),

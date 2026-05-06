@@ -63,7 +63,7 @@ async function shortPerformanceDigest(): Promise<string> {
       messages: buildFeedbackAnalysisPrompt({
         posts: rows.map((r) => ({
           id: r.id,
-          platform: r.platform as "x" | "linkedin",
+          platform: r.platform as "x" | "linkedin" | "reddit",
           persona: r.personaName,
           hook: r.hook,
           body: r.body,

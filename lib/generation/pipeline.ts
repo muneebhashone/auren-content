@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client";
 import { runWithConcurrency } from "./concurrency";
+import { sanitizeForPlatform } from "./text-sanitize";
 import { getGenerationConcurrency } from "./settings";
 import {
   businessProfile,
@@ -149,7 +150,7 @@ async function buildPerformanceDigest(): Promise<string> {
   const messages = buildFeedbackAnalysisPrompt({
     posts: rows.map((r) => ({
       id: r.id,
-      platform: r.platform as "x" | "linkedin",
+      platform: r.platform as "x" | "linkedin" | "reddit",
       persona: r.personaName,
       hook: r.hook,
       body: r.body,
@@ -237,6 +238,7 @@ async function generateOneSlot(
       weekTheme: ctx.weekTheme,
       signals: slotSignals,
       topPerformers: ctx.topPerformers,
+      subreddit: slot.subreddit,
     }),
     maxTokens: 1200,
   });
@@ -264,10 +266,15 @@ async function generateOneSlot(
   }
 
   // 3. Polish
+  const draftTitle =
+    slot.platform === "reddit"
+      ? draft.title || draft.hook
+      : undefined;
   let polished: PolishOutput = {
     hook: draft.hook,
     body: draft.body,
     hashtags: draft.hashtags ?? [],
+    title: draftTitle,
   };
   try {
     const polishResp = await callLLMJson<PolishOutput>({
@@ -278,6 +285,8 @@ async function generateOneSlot(
         body: draft.body,
         hashtags: draft.hashtags ?? [],
         donts: persona.donts,
+        title: draftTitle,
+        subreddit: slot.subreddit,
       }),
       maxTokens: 700,
     });
@@ -285,6 +294,19 @@ async function generateOneSlot(
   } catch (err) {
     console.warn("Polish failed, keeping draft:", (err as Error).message);
   }
+
+  // For Reddit, hook mirrors title so existing UIs that show post.hook keep working.
+  const rawTitle =
+    slot.platform === "reddit"
+      ? polished.title || polished.hook
+      : null;
+  const finalTitle = rawTitle
+    ? sanitizeForPlatform(slot.platform, rawTitle)
+    : null;
+  const sanitizedHook = sanitizeForPlatform(slot.platform, polished.hook);
+  const finalHook =
+    slot.platform === "reddit" && finalTitle ? finalTitle : sanitizedHook;
+  const finalBody = sanitizeForPlatform(slot.platform, polished.body);
 
   // 4. Insert post first so we have an id for citations
   const [inserted] = await db
@@ -295,9 +317,11 @@ async function generateOneSlot(
       platform: slot.platform,
       scheduledFor: slot.scheduled_for,
       status: "draft",
-      hook: polished.hook,
-      body: polished.body,
-      hashtagsJson: JSON.stringify(polished.hashtags),
+      hook: finalHook,
+      body: finalBody,
+      title: finalTitle,
+      subreddit: slot.platform === "reddit" ? slot.subreddit ?? null : null,
+      hashtagsJson: JSON.stringify(slot.platform === "reddit" ? [] : polished.hashtags),
       imagePrompt: draft.image_prompt ?? "",
       altHooksJson: JSON.stringify(altHooks),
       rationaleJson: "{}",
@@ -312,8 +336,8 @@ async function generateOneSlot(
       messages: buildRationalePrompt({
         platform: slot.platform,
         scheduledFor: slot.scheduled_for,
-        hook: polished.hook,
-        body: polished.body,
+        hook: finalHook,
+        body: finalBody,
         weekTheme: ctx.weekTheme,
         slotTheme: slot.theme,
         hookAngle: slot.hook_angle,
@@ -438,6 +462,7 @@ export async function generateWeek(
         voiceProfileMd: p.voiceProfileMd,
         platforms: safeJson<string[]>(p.platformsJson, []),
         cadence: safeJson<Record<string, number>>(p.cadenceJson, {}),
+        subreddits: safeJson<string[]>(p.subredditsJson, []),
       })),
       signals: signalRows.map((s) => ({
         id: s.id,
@@ -559,12 +584,13 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
     // Fallback: synthesize a slot from the existing post
     ({
       persona_id: post.personaId,
-      platform: post.platform as "x" | "linkedin",
+      platform: post.platform as "x" | "linkedin" | "reddit",
       scheduled_for: post.scheduledFor,
       theme: weekPlan.week_theme || post.hook.slice(0, 60),
       hook_angle: post.hook,
       why_this_slot: "regenerated",
       signal_ids: [],
+      subreddit: post.subreddit ?? undefined,
     } as SlotPlan);
 
   const persona = (
@@ -610,6 +636,7 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
       hookAngle: slot.hook_angle,
       weekTheme: weekPlan.week_theme,
       signals: slotSignals,
+      subreddit: slot.subreddit,
     }),
     maxTokens: 1200,
   });
@@ -633,10 +660,13 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
     altHooks = critic.content.alt_hooks ?? [];
   } catch {}
 
+  const draftTitle =
+    slot.platform === "reddit" ? draft.title || draft.hook : undefined;
   let polished: PolishOutput = {
     hook: draft.hook,
     body: draft.body,
     hashtags: draft.hashtags ?? [],
+    title: draftTitle,
   };
   try {
     polished = (
@@ -648,18 +678,32 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
           body: draft.body,
           hashtags: draft.hashtags ?? [],
           donts: persona.donts,
+          title: draftTitle,
+          subreddit: slot.subreddit,
         }),
         maxTokens: 700,
       })
     ).content;
   } catch {}
 
+  const rawTitle =
+    slot.platform === "reddit" ? polished.title || polished.hook : null;
+  const finalTitle = rawTitle
+    ? sanitizeForPlatform(slot.platform, rawTitle)
+    : null;
+  const sanitizedHook = sanitizeForPlatform(slot.platform, polished.hook);
+  const finalHook =
+    slot.platform === "reddit" && finalTitle ? finalTitle : sanitizedHook;
+  const finalBody = sanitizeForPlatform(slot.platform, polished.body);
+
   await db
     .update(postsTable)
     .set({
-      hook: polished.hook,
-      body: polished.body,
-      hashtagsJson: JSON.stringify(polished.hashtags),
+      hook: finalHook,
+      body: finalBody,
+      title: finalTitle,
+      subreddit: slot.platform === "reddit" ? slot.subreddit ?? null : null,
+      hashtagsJson: JSON.stringify(slot.platform === "reddit" ? [] : polished.hashtags),
       imagePrompt: draft.image_prompt ?? "",
       altHooksJson: JSON.stringify(altHooks),
       updatedAt: new Date().toISOString(),
@@ -674,8 +718,8 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
       messages: buildRationalePrompt({
         platform: slot.platform,
         scheduledFor: slot.scheduled_for,
-        hook: polished.hook,
-        body: polished.body,
+        hook: finalHook,
+        body: finalBody,
         weekTheme: weekPlan.week_theme,
         slotTheme: slot.theme,
         hookAngle: slot.hook_angle,

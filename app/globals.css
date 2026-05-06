@@ -15,6 +15,7 @@
   --danger: #ff6b6b;
   --x: #e7e9ea;
   --linkedin: #4d8eff;
+  --reddit: #ff4500;
 }
 
 @theme inline {
@@ -32,6 +33,7 @@
   --color-danger: var(--danger);
   --color-x: var(--x);
   --color-linkedin: var(--linkedin);
+  --color-reddit: var(--reddit);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

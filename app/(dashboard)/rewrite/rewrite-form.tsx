@@ -104,11 +104,11 @@ export function RewriteForm({ personas }: { personas: PersonaOption[] }) {
           </Button>
           {loading && factCheck ? (
             <span className="text-xs text-fg-muted">
-              Grounding with research, then writing 4 variants…
+              Grounding with research, then writing 6 variants…
             </span>
           ) : loading ? (
             <span className="text-xs text-fg-muted">
-              Writing 4 variants in parallel (polished + faithful for each platform)…
+              Writing 6 variants in parallel (polished + faithful for each platform)…
             </span>
           ) : null}
         </div>
@@ -123,7 +123,7 @@ export function RewriteForm({ personas }: { personas: PersonaOption[] }) {
 
       {result ? (
         <VariantsDisplay
-          variants={{ linkedin: result.linkedin, x: result.x }}
+          variants={{ linkedin: result.linkedin, x: result.x, reddit: result.reddit }}
           signals={result.signals}
         />
       ) : null}

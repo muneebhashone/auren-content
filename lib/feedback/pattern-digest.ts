@@ -45,7 +45,12 @@ async function loadCorpus(): Promise<FeedbackAnalysisInput["posts"]> {
 
   return rows.map((r) => ({
     id: r.id,
-    platform: (r.platform === "linkedin" ? "linkedin" : "x") as "x" | "linkedin",
+    platform:
+      r.platform === "linkedin"
+        ? ("linkedin" as const)
+        : r.platform === "reddit"
+          ? ("reddit" as const)
+          : ("x" as const),
     persona: r.personaName,
     hook: r.hook,
     body: r.body,

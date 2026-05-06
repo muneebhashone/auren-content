@@ -24,12 +24,12 @@ You MUST return ONLY a JSON object of shape:
 Rules:
 - Return 8-12 signals total, mixed across kinds.
 - Every summary must include something concrete: a number, a quote, a named company, a specific framework, or a dated event.
-- RECENCY IS NON-NEGOTIABLE. Our space (AI / dev tooling) moves weekly. Every signal MUST be from the last 7 days; ideally the last 3 days. Hard-reject anything older than 7 days — return fewer signals instead.
+- RECENCY IS NON-NEGOTIABLE. Our space (AI / dev tooling) moves weekly. Every signal MUST be from the last 7 days; ideally the last 3 days. Hard-reject anything older than 7 days. Return fewer signals instead.
 - "trend" = a topic gaining traction in the target audience's feed (X / LinkedIn) RIGHT NOW (last 3-7 days).
 - "competitor" = something a similar agency or studio posted/launched/announced in the last 7 days.
 - "news" = industry news or releases from the last 7 days.
 - Include the publication date in the summary when available (e.g. "Released 2 days ago…", "Posted yesterday…").
-- Skip generic platitudes. If you can't find something concrete and recent, return fewer signals — never pad.
+- Skip generic platitudes. If you can't find something concrete and recent, return fewer signals. Never pad.
 - source_url must be a real, public URL. Do not invent URLs.
 - Never cite content from prior years as if current. If the most recent material you can find is older than 7 days, OMIT that topic.`;
 

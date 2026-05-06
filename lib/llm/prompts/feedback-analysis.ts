@@ -3,7 +3,7 @@ import type { ChatMessage } from "../openrouter";
 export interface FeedbackAnalysisInput {
   posts: Array<{
     id: number;
-    platform: "x" | "linkedin";
+    platform: "x" | "linkedin" | "reddit";
     persona: string;
     hook: string;
     body: string;
@@ -26,7 +26,7 @@ export interface FeedbackAnalysisOutput {
 export function buildFeedbackAnalysisPrompt(
   input: FeedbackAnalysisInput
 ): ChatMessage[] {
-  const system = `You are a content performance analyst. You read a corpus of past posts with their metrics and qualitative notes, and you find PATTERNS — not just rankings.
+  const system = `You are a content performance analyst. You read a corpus of past posts with their metrics and qualitative notes, and you find PATTERNS, not just rankings.
 
 Return ONLY:
 {

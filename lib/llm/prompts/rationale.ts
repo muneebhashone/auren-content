@@ -1,7 +1,7 @@
 import type { ChatMessage } from "../openrouter";
 
 export interface RationaleInput {
-  platform: "x" | "linkedin";
+  platform: "x" | "linkedin" | "reddit";
   scheduledFor: string;
   hook: string;
   body: string;
@@ -42,11 +42,11 @@ export function buildRationalePrompt(input: RationaleInput): ChatMessage[] {
 
 Return ONLY:
 {
-  "hookStrategy": "<one sentence — what kind of hook and why>",
-  "audience": "<one sentence — who this is aimed at>",
-  "slotReasoning": "<one sentence — why this day/time/platform>",
-  "viralityLever": "<one sentence — what makes this stop a scroll>",
-  "expectedOutcome": "<one sentence — concrete result we'd hope for, e.g. saves, replies, DMs>",
+  "hookStrategy": "<one sentence: what kind of hook and why>",
+  "audience": "<one sentence: who this is aimed at>",
+  "slotReasoning": "<one sentence: why this day/time/platform>",
+  "viralityLever": "<one sentence: what makes this stop a scroll>",
+  "expectedOutcome": "<one sentence: concrete result we'd hope for, e.g. saves, replies, DMs>",
   "citations": [
     { "claim_key": "<one of: hookStrategy|audience|slotReasoning|viralityLever|expectedOutcome>",
       "claim": "<short reason snippet>",
@@ -56,7 +56,7 @@ Return ONLY:
 }
 
 Rules:
-- Be specific. "Speaks to founders" is too vague — name what about the post speaks to founders.
+- Be specific. "Speaks to founders" is too vague. Name what about the post speaks to founders.
 - Every citation must point to something real: a signal_id from the supplied list, the persona, the active goal, etc. Don't invent ids.
 - Aim for 3-6 citations total. Do NOT pad.`;
 

@@ -11,6 +11,7 @@ const badgeVariants = cva(
         accent: "bg-accent/10 text-accent border border-accent/30",
         x: "bg-fg/5 text-fg border border-fg/20",
         linkedin: "bg-linkedin/10 text-linkedin border border-linkedin/30",
+        reddit: "bg-reddit/10 text-reddit border border-reddit/30",
         warning: "bg-warning/10 text-warning border border-warning/30",
         danger: "bg-danger/10 text-danger border border-danger/30",
         muted: "bg-bg-overlay text-fg-subtle border border-border",

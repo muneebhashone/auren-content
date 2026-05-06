@@ -34,7 +34,7 @@ export function CalendarToolbar({
   isoWeek: string;
   personas: Persona[];
   selectedPersonaIds: number[];
-  platform: "all" | "x" | "linkedin";
+  platform: "all" | "x" | "linkedin" | "reddit";
   view: "calendar" | "kanban";
 }) {
   const router = useRouter();
@@ -155,7 +155,7 @@ export function CalendarToolbar({
       <div className="mx-2 h-6 w-px bg-border" />
 
       <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
-        {(["all", "x", "linkedin"] as const).map((opt) => (
+        {(["all", "x", "linkedin", "reddit"] as const).map((opt) => (
           <button
             key={opt}
             type="button"
@@ -170,7 +170,13 @@ export function CalendarToolbar({
                 : "text-fg-muted hover:text-fg"
             )}
           >
-            {opt === "x" ? "X" : opt === "linkedin" ? "LinkedIn" : "All"}
+            {opt === "x"
+              ? "X"
+              : opt === "linkedin"
+                ? "LinkedIn"
+                : opt === "reddit"
+                  ? "Reddit"
+                  : "All"}
           </button>
         ))}
       </div>

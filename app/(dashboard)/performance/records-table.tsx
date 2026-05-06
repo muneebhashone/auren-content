@@ -142,7 +142,15 @@ export function RecordsTable({ rows }: { rows: RecordRow[] }) {
                 </Link>
               </td>
               <td className="px-3 py-2">
-                <Badge variant={r.platform === "linkedin" ? "linkedin" : "x"}>
+                <Badge
+                  variant={
+                    r.platform === "linkedin"
+                      ? "linkedin"
+                      : r.platform === "reddit"
+                        ? "reddit"
+                        : "x"
+                  }
+                >
                   {r.platform}
                 </Badge>
               </td>

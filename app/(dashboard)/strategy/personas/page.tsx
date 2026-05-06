@@ -14,8 +14,18 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-type Platform = "x" | "linkedin";
+type Platform = "x" | "linkedin" | "reddit";
 type Cadence = Partial<Record<Platform, number>>;
+
+const ALL_PLATFORMS = ["x", "linkedin", "reddit"] as const;
+
+function parseSubreddits(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => (s.startsWith("r/") ? s : `r/${s.replace(/^\/+/, "")}`));
+}
 
 const personaInput = z.object({
   name: z.string().trim().min(1, "Name required"),
@@ -24,21 +34,25 @@ const personaInput = z.object({
   dos: z.string().default(""),
   donts: z.string().default(""),
   samplePhrases: z.string().default(""),
-  platforms: z.array(z.enum(["x", "linkedin"])).default([]),
+  platforms: z.array(z.enum(ALL_PLATFORMS)).default([]),
   cadence: z
-    .record(z.enum(["x", "linkedin"]), z.number().int().min(0).max(50))
-    .default(() => ({ x: 0, linkedin: 0 })),
+    .record(z.enum(ALL_PLATFORMS), z.number().int().min(0).max(50))
+    .default(() => ({ x: 0, linkedin: 0, reddit: 0 })),
+  subreddits: z.array(z.string()).default([]),
 });
 
 function readPersonaForm(formData: FormData) {
   const platformsRaw = formData.getAll("platforms").map(String) as string[];
-  const platforms = platformsRaw.filter((p): p is Platform => p === "x" || p === "linkedin");
-  const cadence: Record<Platform, number> = { x: 0, linkedin: 0 };
-  for (const p of ["x", "linkedin"] as const) {
+  const platforms = platformsRaw.filter((p): p is Platform =>
+    (ALL_PLATFORMS as readonly string[]).includes(p)
+  );
+  const cadence: Record<Platform, number> = { x: 0, linkedin: 0, reddit: 0 };
+  for (const p of ALL_PLATFORMS) {
     if (!platforms.includes(p)) continue;
     const raw = Number(formData.get(`cadence_${p}`) ?? 0);
     cadence[p] = Number.isFinite(raw) ? Math.max(0, Math.min(50, Math.floor(raw))) : 0;
   }
+  const subreddits = parseSubreddits(String(formData.get("subreddits") ?? ""));
   return personaInput.parse({
     name: formData.get("name") ?? "",
     role: formData.get("role") ?? "",
@@ -48,6 +62,7 @@ function readPersonaForm(formData: FormData) {
     samplePhrases: formData.get("samplePhrases") ?? "",
     platforms,
     cadence,
+    subreddits,
   });
 }
 
@@ -63,6 +78,7 @@ async function createPersona(formData: FormData) {
     samplePhrases: data.samplePhrases,
     platformsJson: JSON.stringify(data.platforms),
     cadenceJson: JSON.stringify(data.cadence),
+    subredditsJson: JSON.stringify(data.subreddits),
     active: true,
   });
   revalidatePath("/strategy/personas");
@@ -85,6 +101,7 @@ async function updatePersona(formData: FormData) {
       samplePhrases: data.samplePhrases,
       platformsJson: JSON.stringify(data.platforms),
       cadenceJson: JSON.stringify(data.cadence),
+      subredditsJson: JSON.stringify(data.subreddits),
     })
     .where(eq(personas.id, id));
   revalidatePath("/strategy/personas");
@@ -106,10 +123,22 @@ async function deletePersona(formData: FormData) {
   revalidatePath("/strategy/personas");
 }
 
-const PLATFORMS: { id: Platform; label: string; variant: "x" | "linkedin" }[] = [
+const PLATFORMS: { id: Platform; label: string; variant: "x" | "linkedin" | "reddit" }[] = [
   { id: "x", label: "X", variant: "x" },
   { id: "linkedin", label: "LinkedIn", variant: "linkedin" },
+  { id: "reddit", label: "Reddit", variant: "reddit" },
 ];
+
+function platformLabel(p: Platform): string {
+  switch (p) {
+    case "x":
+      return "X";
+    case "linkedin":
+      return "LinkedIn";
+    case "reddit":
+      return "Reddit";
+  }
+}
 
 export default async function PersonasPage({
   searchParams,
@@ -167,6 +196,7 @@ export default async function PersonasPage({
             samplePhrases: editing.samplePhrases,
             platforms: safeJson<Platform[]>(editing.platformsJson, []),
             cadence: safeJson<Cadence>(editing.cadenceJson, {}),
+            subreddits: safeJson<string[]>(editing.subredditsJson, []),
           }}
         />
       ) : null}
@@ -189,6 +219,7 @@ export default async function PersonasPage({
           all.map((p) => {
             const platforms = safeJson<Platform[]>(p.platformsJson, []);
             const cadence = safeJson<Cadence>(p.cadenceJson, {});
+            const subreddits = safeJson<string[]>(p.subredditsJson, []);
             return (
               <Card
                 key={p.id}
@@ -223,12 +254,25 @@ export default async function PersonasPage({
                     ) : (
                       platforms.map((pl) => (
                         <Badge key={pl} variant={pl}>
-                          {pl === "x" ? "X" : "LinkedIn"}
+                          {platformLabel(pl)}
                           <span className="font-mono opacity-70">{cadence[pl] ?? 0}/wk</span>
                         </Badge>
                       ))
                     )}
                   </div>
+
+                  {platforms.includes("reddit") && subreddits.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {subreddits.map((s) => (
+                        <span
+                          key={s}
+                          className="text-[10px] font-mono text-fg-subtle border border-border rounded px-1.5 py-0.5"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {p.voiceProfileMd ? (
                     <p className="text-xs text-fg-muted line-clamp-3 whitespace-pre-wrap">
@@ -291,6 +335,7 @@ type PersonaDefaults = {
   samplePhrases: string;
   platforms: Platform[];
   cadence: Cadence;
+  subreddits: string[];
 };
 
 function emptyPersona(): PersonaDefaults {
@@ -303,6 +348,7 @@ function emptyPersona(): PersonaDefaults {
     samplePhrases: "",
     platforms: [],
     cadence: {},
+    subreddits: [],
   };
 }
 
@@ -428,6 +474,23 @@ function PersonaEditor({
                   );
                 })}
               </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="subreddits">
+                Subreddits <span className="text-fg-subtle font-normal">(Reddit only)</span>
+              </Label>
+              <Textarea
+                id="subreddits"
+                name="subreddits"
+                rows={3}
+                defaultValue={defaults.subreddits.join("\n")}
+                placeholder="One per line, e.g. r/SaaS"
+                className="font-mono text-[13px]"
+              />
+              <p className="text-xs text-fg-subtle">
+                The strategist will pick a subreddit from this list for each Reddit slot.
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

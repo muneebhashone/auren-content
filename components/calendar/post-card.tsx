@@ -25,6 +25,18 @@ export function personaColor(personaId: number) {
   return personaPalette[personaId % personaPalette.length];
 }
 
+function platformVariant(platform: string): "linkedin" | "x" | "reddit" {
+  if (platform === "linkedin") return "linkedin";
+  if (platform === "reddit") return "reddit";
+  return "x";
+}
+
+function platformBadgeLabel(platform: string): string {
+  if (platform === "linkedin") return "LI";
+  if (platform === "reddit") return "R";
+  return "X";
+}
+
 export function PostCard({
   post,
   persona,
@@ -67,8 +79,8 @@ export function PostCard({
         >
           {initial}
         </span>
-        <Badge variant={post.platform === "linkedin" ? "linkedin" : "x"}>
-          {post.platform === "linkedin" ? "LI" : "X"}
+        <Badge variant={platformVariant(post.platform)}>
+          {platformBadgeLabel(post.platform)}
         </Badge>
         <span className="ml-auto font-mono text-[10px] text-fg-subtle">
           {time}

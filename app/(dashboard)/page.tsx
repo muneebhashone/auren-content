@@ -23,8 +23,12 @@ export default async function DashboardHome({
   const isoWeek = sp.week ?? formatIsoWeek();
   const view: "calendar" | "kanban" =
     sp.view === "kanban" ? "kanban" : "calendar";
-  const platform: "all" | "x" | "linkedin" =
-    sp.platform === "x" || sp.platform === "linkedin" ? sp.platform : "all";
+  const platform: "all" | "x" | "linkedin" | "reddit" =
+    sp.platform === "x" ||
+    sp.platform === "linkedin" ||
+    sp.platform === "reddit"
+      ? sp.platform
+      : "all";
   const selectedPersonaIds = (sp.personas ?? "")
     .split(",")
     .map((s) => Number(s.trim()))

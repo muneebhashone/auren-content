@@ -10,6 +10,7 @@ const variantSchema = z.object({
   hook: z.string().default(""),
   body: z.string().default(""),
   hashtags: z.array(z.string()).default([]),
+  title: z.string().optional(),
 });
 
 const variantsSchema = z.object({
@@ -18,6 +19,10 @@ const variantsSchema = z.object({
     faithful: variantSchema,
   }),
   x: z.object({
+    polished: variantSchema,
+    faithful: variantSchema,
+  }),
+  reddit: z.object({
     polished: variantSchema,
     faithful: variantSchema,
   }),

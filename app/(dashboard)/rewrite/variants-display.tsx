@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Variant, Variants, Signal } from "./types";
 
-type Platform = "linkedin" | "x";
+type Platform = "linkedin" | "x" | "reddit";
 type Kind = "polished" | "faithful";
 
 export function VariantsDisplay({
@@ -48,6 +48,13 @@ export function VariantsDisplay({
         editing={editing}
         onChange={(kind, next) => updateVariant("x", kind, next)}
       />
+      <PlatformGroup
+        platform="reddit"
+        title="Reddit"
+        variants={variants.reddit}
+        editing={editing}
+        onChange={(kind, next) => updateVariant("reddit", kind, next)}
+      />
       {signals.length > 0 ? (
         <Card>
           <CardHeader>
@@ -76,6 +83,17 @@ export function VariantsDisplay({
   );
 }
 
+function platformDotClass(platform: Platform): string {
+  switch (platform) {
+    case "linkedin":
+      return "inline-block w-2 h-2 rounded-full bg-linkedin";
+    case "reddit":
+      return "inline-block w-2 h-2 rounded-full bg-reddit";
+    case "x":
+      return "inline-block w-2 h-2 rounded-full bg-fg/70";
+  }
+}
+
 function PlatformGroup({
   platform,
   title,
@@ -92,13 +110,7 @@ function PlatformGroup({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-fg">
-        <span
-          className={
-            platform === "linkedin"
-              ? "inline-block w-2 h-2 rounded-full bg-linkedin"
-              : "inline-block w-2 h-2 rounded-full bg-fg/70"
-          }
-        />
+        <span className={platformDotClass(platform)} />
         {title}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -143,7 +155,7 @@ function VariantCard({
   onChange: (next: Variant) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const fullText = formatPost(variant);
+  const fullText = formatPost(platform, variant);
   const bodyChars = variant.body.length;
   const charStatus = charBadgeStatus(platform, bodyChars);
 
@@ -156,6 +168,8 @@ function VariantCard({
       // ignore
     }
   }
+
+  const isReddit = platform === "reddit";
 
   return (
     <Card>
@@ -195,46 +209,67 @@ function VariantCard({
       <CardContent className="flex flex-col gap-3">
         {editing ? (
           <>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Hook</Label>
-              <Input
-                value={variant.hook}
-                onChange={(e) => onChange({ ...variant, hook: e.target.value })}
-              />
-            </div>
+            {isReddit ? (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Title</Label>
+                <Input
+                  value={variant.title ?? ""}
+                  onChange={(e) =>
+                    onChange({ ...variant, title: e.target.value, hook: e.target.value })
+                  }
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Hook</Label>
+                <Input
+                  value={variant.hook}
+                  onChange={(e) => onChange({ ...variant, hook: e.target.value })}
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Body</Label>
               <Textarea
-                rows={6}
+                rows={isReddit ? 10 : 6}
                 value={variant.body}
                 onChange={(e) => onChange({ ...variant, body: e.target.value })}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs">Hashtags (space-separated)</Label>
-              <Input
-                value={variant.hashtags.join(" ")}
-                onChange={(e) =>
-                  onChange({
-                    ...variant,
-                    hashtags: e.target.value
-                      .split(/\s+/)
-                      .map((t) => t.trim())
-                      .filter(Boolean),
-                  })
-                }
-              />
-            </div>
+            {!isReddit ? (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Hashtags (space-separated)</Label>
+                <Input
+                  value={variant.hashtags.join(" ")}
+                  onChange={(e) =>
+                    onChange({
+                      ...variant,
+                      hashtags: e.target.value
+                        .split(/\s+/)
+                        .map((t) => t.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </div>
+            ) : null}
           </>
         ) : (
           <>
-            <div className="text-sm font-semibold text-fg whitespace-pre-wrap">
-              {variant.hook}
-            </div>
+            {isReddit && variant.title ? (
+              <div className="text-sm font-semibold text-fg whitespace-pre-wrap">
+                {variant.title}
+              </div>
+            ) : null}
+            {!isReddit ? (
+              <div className="text-sm font-semibold text-fg whitespace-pre-wrap">
+                {variant.hook}
+              </div>
+            ) : null}
             <div className="text-sm text-fg-muted whitespace-pre-wrap">
               {variant.body}
             </div>
-            {variant.hashtags.length > 0 ? (
+            {!isReddit && variant.hashtags.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {variant.hashtags.map((tag, i) => (
                   <span key={i} className="text-xs text-accent">
@@ -250,7 +285,11 @@ function VariantCard({
   );
 }
 
-function formatPost(v: Variant): string {
+function formatPost(platform: Platform, v: Variant): string {
+  if (platform === "reddit") {
+    const title = v.title || v.hook;
+    return `${title}\n\n${v.body}`;
+  }
   const tags = v.hashtags.length ? `\n\n${v.hashtags.join(" ")}` : "";
   return `${v.hook}\n\n${v.body}${tags}`;
 }
@@ -262,6 +301,11 @@ function charBadgeStatus(
   if (platform === "x") {
     if (chars > 270) return "bad";
     if (chars > 240) return "warn";
+    return "ok";
+  }
+  if (platform === "reddit") {
+    if (chars > 10000) return "bad";
+    if (chars < 500) return "warn";
     return "ok";
   }
   if (chars < 600 || chars > 1400) return "warn";

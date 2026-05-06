@@ -106,7 +106,15 @@ export default async function PerformancePage() {
                 className="group rounded-lg border border-border bg-bg-elevated p-4 hover:border-accent/40 transition-colors flex flex-col gap-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant={p.platform === "linkedin" ? "linkedin" : "x"}>
+                  <Badge
+                    variant={
+                      p.platform === "linkedin"
+                        ? "linkedin"
+                        : p.platform === "reddit"
+                          ? "reddit"
+                          : "x"
+                    }
+                  >
                     {p.platform}
                   </Badge>
                   <span className="font-mono text-[11px] text-fg-subtle tabular-nums">

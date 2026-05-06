@@ -43,6 +43,13 @@
       "when": 1777854000000,
       "tag": "0005_rewrites",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1777857600000,
+      "tag": "0006_reddit_platform",
+      "breakpoints": true
     }
   ]
 }
