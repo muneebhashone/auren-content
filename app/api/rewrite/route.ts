@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     dos: persona.dos,
     donts: persona.donts,
     samplePhrases: persona.samplePhrases,
+    casualness: persona.casualness,
   };
 
   const faithfulPersona: WriterInput["persona"] = {
@@ -129,6 +130,7 @@ You ARE rewriting this for social. You are NOT pasting it back. The output must 
     dos: `REWRITE the dump into a real social post. Required edits: build a punchy hook line, restructure for scannability, cut redundancy, hit the platform's character limits. Keep the user's vocabulary, claims, viewpoint, and intent intact. Open with the strongest beat from the dump (rephrased if needed for punch, but in the user's register).`,
     donts: `Do NOT just paste the dump back. Do NOT keep the dump's original paragraph structure if it doesn't fit the platform. Do NOT exceed character limits. Do NOT add claims, statistics, framings, or opinions the user didn't include. Do NOT "professionalize" or soften the tone. Do NOT swap the user's vocabulary for the persona's. Do NOT add stock LinkedIn hooks like "Here's the truth", "Most people think", "Hot take". (Persona's original donts also apply: ${persona.donts})`,
     samplePhrases: dump,
+    casualness: persona.casualness,
   };
 
   const polishedAngle =

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { runWithConcurrency } from "./concurrency";
-import { sanitizeForPlatform } from "./text-sanitize";
+import { detectAITells, sanitizeForPlatform } from "./text-sanitize";
 import { getGenerationConcurrency } from "./settings";
 import {
   getContentMix,
@@ -250,6 +250,7 @@ async function generateOneSlot(
         dos: persona.dos,
         donts: persona.donts,
         samplePhrases: persona.samplePhrases,
+        casualness: persona.casualness,
       },
       brandVoiceGlobal: ctx.profileVoice,
       platform: slot.platform,
@@ -307,6 +308,7 @@ async function generateOneSlot(
         body: draft.body,
         hashtags: draft.hashtags ?? [],
         donts: persona.donts,
+        casualness: persona.casualness,
         title: draftTitle,
         subreddit: slot.subreddit,
       }),
@@ -329,6 +331,24 @@ async function generateOneSlot(
   const finalHook =
     slot.platform === "reddit" && finalTitle ? finalTitle : sanitizedHook;
   const finalBody = sanitizeForPlatform(slot.platform, polished.body);
+
+  // Log AI tells (banned vocab, banned patterns, low reading ease) so we can
+  // see when the prompt rules slip. Non-blocking; just structured warnings.
+  const tellsReport = detectAITells(`${finalHook}\n${finalBody}`);
+  if (
+    tellsReport.bannedWords.length ||
+    tellsReport.bannedPatterns.length ||
+    tellsReport.flesch < 40
+  ) {
+    console.warn("AI tells detected", {
+      platform: slot.platform,
+      personaId: persona.id,
+      casualness: persona.casualness,
+      bannedWords: tellsReport.bannedWords,
+      bannedPatterns: tellsReport.bannedPatterns,
+      flesch: tellsReport.flesch,
+    });
+  }
 
   // 4. Insert post first so we have an id for citations
   const [inserted] = await db
@@ -791,6 +811,7 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
         dos: persona.dos,
         donts: persona.donts,
         samplePhrases: persona.samplePhrases,
+        casualness: persona.casualness,
       },
       brandVoiceGlobal: profileRow.voiceGlobal,
       platform: slot.platform,
@@ -842,6 +863,7 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
           body: draft.body,
           hashtags: draft.hashtags ?? [],
           donts: persona.donts,
+          casualness: persona.casualness,
           title: draftTitle,
           subreddit: slot.subreddit,
         }),
@@ -859,6 +881,22 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
   const finalHook =
     slot.platform === "reddit" && finalTitle ? finalTitle : sanitizedHook;
   const finalBody = sanitizeForPlatform(slot.platform, polished.body);
+
+  const tellsReport = detectAITells(`${finalHook}\n${finalBody}`);
+  if (
+    tellsReport.bannedWords.length ||
+    tellsReport.bannedPatterns.length ||
+    tellsReport.flesch < 40
+  ) {
+    console.warn("AI tells detected (regen)", {
+      platform: slot.platform,
+      personaId: persona.id,
+      casualness: persona.casualness,
+      bannedWords: tellsReport.bannedWords,
+      bannedPatterns: tellsReport.bannedPatterns,
+      flesch: tellsReport.flesch,
+    });
+  }
 
   await db
     .update(postsTable)

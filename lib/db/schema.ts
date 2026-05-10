@@ -47,6 +47,9 @@ export const personas = sqliteTable("personas", {
   cadenceJson: text("cadence_json").notNull().default("{}"),
   // ["r/SaaS", "r/startups"] — only consulted for reddit platform slots
   subredditsJson: text("subreddits_json").notNull().default("[]"),
+  // 0-100 humanization dial. 0 = corporate, 50 = conversational, 100 = off-the-cuff.
+  // Platform multipliers in lib/generation/humanize.ts adjust the effective register.
+  casualness: integer("casualness").notNull().default(50),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: ts("created_at"),
 });

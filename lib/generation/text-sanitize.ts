@@ -32,3 +32,7 @@ export function sanitizeForPlatform(
   }
   return out;
 }
+
+// Non-mutating reporter for AI tells. Re-exported from humanize.ts so the
+// pipeline can import everything sanitization-related from one place.
+export { detectAITells, type AITellReport } from "./humanize";

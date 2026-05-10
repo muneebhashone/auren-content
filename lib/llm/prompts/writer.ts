@@ -1,5 +1,11 @@
 import type { ChatMessage } from "../openrouter";
 import type { ContentType } from "./strategy";
+import {
+  buildRegister,
+  describeBannedPatterns,
+  describeBannedVocab,
+  describeRegister,
+} from "../../generation/humanize";
 
 export interface WriterInput {
   persona: {
@@ -9,6 +15,9 @@ export interface WriterInput {
     dos: string;
     donts: string;
     samplePhrases: string;
+    // 0-100. Controls humanization register (vocabulary, sentence shape,
+    // contractions, slang). See lib/generation/humanize.ts.
+    casualness: number;
   };
   brandVoiceGlobal: string;
   platform: "x" | "linkedin" | "reddit";
@@ -116,7 +125,16 @@ General rules:
 - When image_prompt is useful, write it as a detailed gpt-image-2 prompt, not a short caption. Include the intended use as a social post image, visual medium or style, subject, setting/background, composition/framing, lighting/mood, color palette, key details, and explicit constraints such as "no watermark" and "no extra text" unless the post needs text in the image.
 - Every non-empty image_prompt must explicitly include both an aspect ratio and pixel size. Prefer "Aspect ratio: 4:5. Size: 1024x1280 px" for LinkedIn feed posts and "Aspect ratio: 16:9. Size: 1536x864 px" for X posts unless the post clearly needs square framing. The size must be valid for gpt-image-2: both edges are multiples of 16, under 3840 px, within a 3:1 long-to-short edge ratio, and suitable for a polished social image.
 - NEVER use em dashes (—, U+2014) or en dashes (–, U+2013) anywhere in the output. This is a hard rule. Before returning, scan every field for these characters and replace each one with a period, comma, colon, semicolon, or line break. Only the ASCII hyphen-minus (-, U+002D) is allowed, and only inside compound words. If you are tempted to use an em dash, you are wrong; rewrite the sentence.
-- NEVER include literal markdown emphasis characters in body text: no \`**\`, no surrounding \`*\`, no \`__\`, no backticks. These render as raw symbols on most surfaces and look like a leak from your scratchpad. Use word choice and sentence structure to emphasize, not formatting.`;
+- NEVER include literal markdown emphasis characters in body text: no \`**\`, no surrounding \`*\`, no \`__\`, no backticks. These render as raw symbols on most surfaces and look like a leak from your scratchpad. Use word choice and sentence structure to emphasize, not formatting.
+
+Sound human (this is the difference between a post that lands and one that gets dismissed as AI):
+${describeBannedVocab()}
+
+${describeBannedPatterns()}
+
+${describeRegister(buildRegister(input.persona.casualness, input.platform))}
+
+When in doubt, write the way the persona's voice profile and voice anchor below would write. Match THEIR cadence, not a generic "good writing" cadence.`;
 
   const signalsText = input.signals.length
     ? input.signals
@@ -142,7 +160,8 @@ Persona
 ${input.persona.voiceProfileMd}
 - DOs: ${input.persona.dos}
 - DON'Ts: ${input.persona.donts}
-- Sample phrases / cadences: ${input.persona.samplePhrases}
+- Voice anchor (match this cadence and word choice closely; this is the strongest signal of how this person actually writes):
+${input.persona.samplePhrases}
 
 Global brand voice (lower priority than persona voice):
 ${input.brandVoiceGlobal}

@@ -39,6 +39,7 @@ const personaInput = z.object({
     .record(z.enum(ALL_PLATFORMS), z.number().int().min(0).max(50))
     .default(() => ({ x: 0, linkedin: 0, reddit: 0 })),
   subreddits: z.array(z.string()).default([]),
+  casualness: z.number().int().min(0).max(100).default(50),
 });
 
 function readPersonaForm(formData: FormData) {
@@ -53,6 +54,10 @@ function readPersonaForm(formData: FormData) {
     cadence[p] = Number.isFinite(raw) ? Math.max(0, Math.min(50, Math.floor(raw))) : 0;
   }
   const subreddits = parseSubreddits(String(formData.get("subreddits") ?? ""));
+  const casualnessRaw = Number(formData.get("casualness") ?? 50);
+  const casualness = Number.isFinite(casualnessRaw)
+    ? Math.max(0, Math.min(100, Math.floor(casualnessRaw)))
+    : 50;
   return personaInput.parse({
     name: formData.get("name") ?? "",
     role: formData.get("role") ?? "",
@@ -63,6 +68,7 @@ function readPersonaForm(formData: FormData) {
     platforms,
     cadence,
     subreddits,
+    casualness,
   });
 }
 
@@ -79,6 +85,7 @@ async function createPersona(formData: FormData) {
     platformsJson: JSON.stringify(data.platforms),
     cadenceJson: JSON.stringify(data.cadence),
     subredditsJson: JSON.stringify(data.subreddits),
+    casualness: data.casualness,
     active: true,
   });
   revalidatePath("/strategy/personas");
@@ -102,6 +109,7 @@ async function updatePersona(formData: FormData) {
       platformsJson: JSON.stringify(data.platforms),
       cadenceJson: JSON.stringify(data.cadence),
       subredditsJson: JSON.stringify(data.subreddits),
+      casualness: data.casualness,
     })
     .where(eq(personas.id, id));
   revalidatePath("/strategy/personas");
@@ -197,6 +205,7 @@ export default async function PersonasPage({
             platforms: safeJson<Platform[]>(editing.platformsJson, []),
             cadence: safeJson<Cadence>(editing.cadenceJson, {}),
             subreddits: safeJson<string[]>(editing.subredditsJson, []),
+            casualness: editing.casualness,
           }}
         />
       ) : null}
@@ -336,6 +345,7 @@ type PersonaDefaults = {
   platforms: Platform[];
   cadence: Cadence;
   subreddits: string[];
+  casualness: number;
 };
 
 function emptyPersona(): PersonaDefaults {
@@ -349,6 +359,7 @@ function emptyPersona(): PersonaDefaults {
     platforms: [],
     cadence: {},
     subreddits: [],
+    casualness: 50,
   };
 }
 
@@ -490,6 +501,33 @@ function PersonaEditor({
               />
               <p className="text-xs text-fg-subtle">
                 The strategist will pick a subreddit from this list for each Reddit slot.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="casualness">Casualness</Label>
+                <span className="text-xs font-mono text-fg-muted tabular-nums">
+                  {defaults.casualness}/100
+                </span>
+              </div>
+              <input
+                id="casualness"
+                name="casualness"
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={defaults.casualness}
+                className="w-full accent-accent"
+              />
+              <div className="flex justify-between text-[10px] text-fg-subtle font-mono uppercase tracking-wide">
+                <span>Corporate</span>
+                <span>Conversational</span>
+                <span>Off-the-cuff</span>
+              </div>
+              <p className="text-xs text-fg-subtle">
+                How casual this persona sounds. Reddit posts skew more casual; LinkedIn dampens this dial. Default 50.
               </p>
             </div>
 
