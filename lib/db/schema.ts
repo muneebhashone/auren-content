@@ -78,6 +78,25 @@ export const researchSignals = sqliteTable("research_signals", {
   fetchedAt: ts("fetched_at"),
 });
 
+// First-person anecdotes and hot takes that fuel `story` and `opinion` slots.
+// Persona-tagged entries can only be used by that persona; null persona = global.
+export const storyBank = sqliteTable("story_bank", {
+  id: id(),
+  // story | hot_take
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  tagsJson: text("tags_json").notNull().default("[]"),
+  personaId: integer("persona_id").references(() => personas.id, {
+    onDelete: "set null",
+  }),
+  lastUsedAt: text("last_used_at"),
+  useCount: integer("use_count").notNull().default(0),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: ts("created_at"),
+  updatedAt: ts("updated_at"),
+});
+
 export const posts = sqliteTable("posts", {
   id: id(),
   weekId: integer("week_id")
@@ -92,6 +111,12 @@ export const posts = sqliteTable("posts", {
   scheduledFor: text("scheduled_for").notNull(),
   // draft | approved | posted | logged
   status: text("status").notNull().default("draft"),
+  // research | story | fun | opinion
+  contentType: text("content_type").notNull().default("research"),
+  // Story bank entry the slot drew on (story/opinion slots). NULL otherwise.
+  storyBankId: integer("story_bank_id").references(() => storyBank.id, {
+    onDelete: "set null",
+  }),
   body: text("body").notNull().default(""),
   hook: text("hook").notNull().default(""),
   // Reddit-only: post title (separate from hook). NULL for x/linkedin.
@@ -120,7 +145,7 @@ export const rationaleCitations = sqliteTable("rationale_citations", {
   // which rationale field this citation supports
   claimKey: text("claim_key").notNull(),
   claim: text("claim").notNull(),
-  // signal | persona | performance | profile | goal | brief
+  // signal | persona | performance | profile | goal | brief | storybank
   sourceKind: text("source_kind").notNull(),
   sourceId: integer("source_id"),
 });
@@ -193,3 +218,4 @@ export type PerformanceRecord = typeof performanceRecords.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type GenerationJob = typeof generationJobs.$inferSelect;
 export type Rewrite = typeof rewrites.$inferSelect;
+export type StoryBankEntry = typeof storyBank.$inferSelect;

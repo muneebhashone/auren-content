@@ -37,6 +37,15 @@ function platformBadgeLabel(platform: string): string {
   return "X";
 }
 
+function contentTypeBadge(
+  type: string
+): { variant: "accent" | "default" | "warning" | "danger"; label: string } {
+  if (type === "story") return { variant: "default", label: "Story" };
+  if (type === "fun") return { variant: "warning", label: "Fun" };
+  if (type === "opinion") return { variant: "danger", label: "Opinion" };
+  return { variant: "accent", label: "Research" };
+}
+
 export function PostCard({
   post,
   persona,
@@ -82,6 +91,10 @@ export function PostCard({
         <Badge variant={platformVariant(post.platform)}>
           {platformBadgeLabel(post.platform)}
         </Badge>
+        {(() => {
+          const ct = contentTypeBadge(post.contentType);
+          return <Badge variant={ct.variant}>{ct.label}</Badge>;
+        })()}
         <span className="ml-auto font-mono text-[10px] text-fg-subtle">
           {time}
         </span>

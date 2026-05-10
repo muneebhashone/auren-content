@@ -15,6 +15,7 @@ import {
   setGenerationConcurrency,
   CONCURRENCY_DEFAULT,
 } from "@/lib/generation/settings";
+import { setContentMix, DEFAULT_MIX } from "@/lib/generation/content-mix";
 
 const TASKS: LlmTask[] = [
   "research",
@@ -100,5 +101,21 @@ export async function saveGenerationConcurrencyAction(formData: FormData) {
       ? Number(raw)
       : CONCURRENCY_DEFAULT;
   await setGenerationConcurrency(parsed);
+  revalidatePath("/settings");
+}
+
+function readPct(raw: FormDataEntryValue | null, fallback: number): number {
+  if (typeof raw !== "string" || raw.trim().length === 0) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export async function saveContentMixAction(formData: FormData) {
+  await setContentMix({
+    research: readPct(formData.get("mix_research"), DEFAULT_MIX.research),
+    story: readPct(formData.get("mix_story"), DEFAULT_MIX.story),
+    fun: readPct(formData.get("mix_fun"), DEFAULT_MIX.fun),
+    opinion: readPct(formData.get("mix_opinion"), DEFAULT_MIX.opinion),
+  });
   revalidatePath("/settings");
 }

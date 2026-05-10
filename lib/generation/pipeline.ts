@@ -3,6 +3,11 @@ import { runWithConcurrency } from "./concurrency";
 import { sanitizeForPlatform } from "./text-sanitize";
 import { getGenerationConcurrency } from "./settings";
 import {
+  getContentMix,
+  computeMixSlotCounts,
+  type ContentType,
+} from "./content-mix";
+import {
   businessProfile,
   performanceRecords,
   personas,
@@ -10,9 +15,11 @@ import {
   quarterlyGoals,
   rationaleCitations,
   researchSignals,
+  storyBank,
   weeklyBriefs,
+  type StoryBankEntry,
 } from "@/lib/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
 import { callLLMJson } from "@/lib/llm";
 import type { JobReporter } from "./job-reporter";
@@ -206,6 +213,7 @@ async function generateOneSlot(
     profileVoice: string;
     persona: typeof personas.$inferSelect;
     signalsById: Map<number, { id: number; summary: string; sourceUrl: string }>;
+    storyBankById: Map<number, StoryBankEntry>;
     topPerformers: string;
     goalObjective?: string;
     weekId: number;
@@ -214,10 +222,22 @@ async function generateOneSlot(
 ): Promise<{
   postId: number;
 }> {
-  const { persona, signalsById } = ctx;
+  const { persona, signalsById, storyBankById } = ctx;
   const slotSignals = (slot.signal_ids ?? [])
     .map((id) => signalsById.get(id))
     .filter((s): s is { id: number; summary: string; sourceUrl: string } => !!s);
+
+  const storyBankEntryRow = slot.story_bank_id
+    ? storyBankById.get(slot.story_bank_id) ?? null
+    : null;
+  const storyBankEntryForWriter = storyBankEntryRow
+    ? {
+        kind: storyBankEntryRow.kind as "story" | "hot_take",
+        title: storyBankEntryRow.title,
+        body: storyBankEntryRow.body,
+        tags: safeJson<string[]>(storyBankEntryRow.tagsJson, []),
+      }
+    : null;
 
   // 1. Writer
   const writerResp = await callLLMJson<WriterOutput>({
@@ -239,6 +259,8 @@ async function generateOneSlot(
       signals: slotSignals,
       topPerformers: ctx.topPerformers,
       subreddit: slot.subreddit,
+      contentType: slot.content_type,
+      storyBankEntry: storyBankEntryForWriter,
     }),
     maxTokens: 1200,
   });
@@ -317,6 +339,8 @@ async function generateOneSlot(
       platform: slot.platform,
       scheduledFor: slot.scheduled_for,
       status: "draft",
+      contentType: slot.content_type,
+      storyBankId: storyBankEntryRow ? storyBankEntryRow.id : null,
       hook: finalHook,
       body: finalBody,
       title: finalTitle,
@@ -328,6 +352,18 @@ async function generateOneSlot(
     })
     .returning();
   await ctx.reporter?.completedPost();
+
+  // Bump story-bank rotation so we don't reuse the same entry next week.
+  if (storyBankEntryRow) {
+    await db
+      .update(storyBank)
+      .set({
+        lastUsedAt: new Date().toISOString(),
+        useCount: storyBankEntryRow.useCount + 1,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(storyBank.id, storyBankEntryRow.id));
+  }
 
   // 5. Rationale + citations
   try {
@@ -365,16 +401,35 @@ async function generateOneSlot(
       })
       .where(eq(postsTable.id, inserted.id));
 
+    const citations: Array<{
+      postId: number;
+      claimKey: string;
+      claim: string;
+      sourceKind: string;
+      sourceId: number | null;
+    }> = [];
+    if (storyBankEntryRow) {
+      citations.push({
+        postId: inserted.id,
+        claimKey: "slotReasoning",
+        claim: `Drew on story-bank entry: ${storyBankEntryRow.title}`,
+        sourceKind: "storybank",
+        sourceId: storyBankEntryRow.id,
+      });
+    }
     if (Array.isArray(r.citations) && r.citations.length > 0) {
-      await db.insert(rationaleCitations).values(
-        r.citations.map((c) => ({
+      for (const c of r.citations) {
+        citations.push({
           postId: inserted.id,
           claimKey: c.claim_key,
           claim: c.claim,
           sourceKind: c.source_kind,
           sourceId: c.source_id,
-        }))
-      );
+        });
+      }
+    }
+    if (citations.length > 0) {
+      await db.insert(rationaleCitations).values(citations);
     }
   } catch (err) {
     console.warn(
@@ -428,6 +483,42 @@ export async function generateWeek(
     signalRows.map((s) => [s.id, { id: s.id, summary: s.summary, sourceUrl: s.sourceUrl }])
   );
 
+  // Compute content-type slot targets from the configurable mix.
+  const totalSlots = allPersonas.reduce((sum, p) => {
+    const cad = safeJson<Record<string, number>>(p.cadenceJson, {});
+    return (
+      sum +
+      Object.values(cad).reduce(
+        (a, b) => a + (Number.isFinite(b) ? Math.max(0, b) : 0),
+        0
+      )
+    );
+  }, 0);
+  const mix = await getContentMix();
+  const targets = computeMixSlotCounts(mix, totalSlots);
+
+  // Curate the story bank for the strategist. Stalest first; deprioritize
+  // entries used in the last 28 days unless that would starve the slate.
+  const allBankRows = await db
+    .select()
+    .from(storyBank)
+    .where(eq(storyBank.active, true))
+    .orderBy(
+      asc(sql`coalesce(${storyBank.lastUsedAt}, '0')`),
+      asc(storyBank.useCount),
+      desc(storyBank.id)
+    )
+    .limit(30);
+  const cutoffMs = Date.now() - 28 * 86_400_000;
+  const fresh = allBankRows.filter((e) => {
+    if (!e.lastUsedAt) return true;
+    const t = Date.parse(e.lastUsedAt);
+    return !Number.isFinite(t) || t < cutoffMs;
+  });
+  const minNeeded = targets.story + targets.opinion;
+  const bankCurated = fresh.length >= minNeeded ? fresh : allBankRows;
+  const storyBankById = new Map(bankCurated.map((e) => [e.id, e]));
+
   // 4. Strategy step
   await reporter?.stage("strategy", "Planning the week");
   const services = safeJson<Array<{ name: string }>>(
@@ -472,10 +563,52 @@ export async function generateWeek(
       })),
       performancePatterns: performanceDigest,
       isoWeek,
+      contentMix: targets,
+      storyBank: bankCurated.map((e) => ({
+        id: e.id,
+        kind: e.kind as "story" | "hot_take",
+        title: e.title,
+        body: e.body,
+        tags: safeJson<string[]>(e.tagsJson, []),
+        personaId: e.personaId ?? null,
+      })),
     }),
     maxTokens: 3500,
   });
   const weekPlan = strategyResp.content;
+
+  // Coerce/validate slot fields: content_type defaults to research; story_bank_id
+  // is nulled if it doesn't match an active entry or violates persona scoping.
+  const VALID_TYPES: ContentType[] = ["research", "story", "fun", "opinion"];
+  for (const slot of weekPlan.slots ?? []) {
+    if (!VALID_TYPES.includes(slot.content_type as ContentType)) {
+      slot.content_type = "research";
+    }
+    const bid = slot.story_bank_id;
+    if (typeof bid === "number") {
+      const entry = storyBankById.get(bid);
+      if (!entry) {
+        slot.story_bank_id = null;
+      } else if (entry.personaId !== null && entry.personaId !== slot.persona_id) {
+        slot.story_bank_id = null;
+      }
+    } else {
+      slot.story_bank_id = null;
+    }
+  }
+  const actual: Record<ContentType, number> = {
+    research: 0,
+    story: 0,
+    fun: 0,
+    opinion: 0,
+  };
+  for (const slot of weekPlan.slots ?? []) actual[slot.content_type] += 1;
+  const drift = (Object.keys(actual) as ContentType[]).some(
+    (k) => Math.abs(actual[k] - targets[k]) > 1
+  );
+  if (drift) {
+    console.warn("Strategy mix drift", { targets, actual });
+  }
 
   // Persist plan snapshot on the brief
   await db
@@ -524,6 +657,7 @@ export async function generateWeek(
         profileVoice: profileRow.voiceGlobal,
         persona,
         signalsById,
+        storyBankById,
         topPerformers: performanceDigest,
         goalObjective: goalRow?.objective,
         weekId: brief.id,
@@ -586,12 +720,22 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
       persona_id: post.personaId,
       platform: post.platform as "x" | "linkedin" | "reddit",
       scheduled_for: post.scheduledFor,
+      content_type: (post.contentType as ContentType) || "research",
+      story_bank_id: post.storyBankId ?? null,
       theme: weekPlan.week_theme || post.hook.slice(0, 60),
       hook_angle: post.hook,
       why_this_slot: "regenerated",
       signal_ids: [],
       subreddit: post.subreddit ?? undefined,
     } as SlotPlan);
+  // Trust the post's recorded values when the slot snapshot lacks them
+  // (older plans pre-date these fields).
+  if (!slot.content_type) {
+    slot.content_type = (post.contentType as ContentType) || "research";
+  }
+  if (slot.story_bank_id === undefined) {
+    slot.story_bank_id = post.storyBankId ?? null;
+  }
 
   const persona = (
     await db.select().from(personas).where(eq(personas.id, post.personaId)).limit(1)
@@ -619,6 +763,24 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
     .map((id) => signalsById.get(id))
     .filter((s): s is { id: number; summary: string; sourceUrl: string } => !!s);
 
+  const bankRow = slot.story_bank_id
+    ? (
+        await db
+          .select()
+          .from(storyBank)
+          .where(eq(storyBank.id, slot.story_bank_id))
+          .limit(1)
+      )[0] ?? null
+    : null;
+  const storyBankEntryForWriter = bankRow
+    ? {
+        kind: bankRow.kind as "story" | "hot_take",
+        title: bankRow.title,
+        body: bankRow.body,
+        tags: safeJson<string[]>(bankRow.tagsJson, []),
+      }
+    : null;
+
   const writerResp = await callLLMJson<WriterOutput>({
     task: "write",
     messages: buildWriterPrompt({
@@ -637,6 +799,8 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
       weekTheme: weekPlan.week_theme,
       signals: slotSignals,
       subreddit: slot.subreddit,
+      contentType: slot.content_type,
+      storyBankEntry: storyBankEntryForWriter,
     }),
     maxTokens: 1200,
   });
@@ -744,16 +908,35 @@ export async function regeneratePost(postId: number): Promise<{ postId: number }
         }),
       })
       .where(eq(postsTable.id, post.id));
+    const citations: Array<{
+      postId: number;
+      claimKey: string;
+      claim: string;
+      sourceKind: string;
+      sourceId: number | null;
+    }> = [];
+    if (bankRow) {
+      citations.push({
+        postId: post.id,
+        claimKey: "slotReasoning",
+        claim: `Drew on story-bank entry: ${bankRow.title}`,
+        sourceKind: "storybank",
+        sourceId: bankRow.id,
+      });
+    }
     if (Array.isArray(r.citations) && r.citations.length > 0) {
-      await db.insert(rationaleCitations).values(
-        r.citations.map((c) => ({
+      for (const c of r.citations) {
+        citations.push({
           postId: post.id,
           claimKey: c.claim_key,
           claim: c.claim,
           sourceKind: c.source_kind,
           sourceId: c.source_id,
-        }))
-      );
+        });
+      }
+    }
+    if (citations.length > 0) {
+      await db.insert(rationaleCitations).values(citations);
     }
   } catch {}
 

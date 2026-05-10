@@ -159,6 +159,7 @@ You ARE rewriting this for social. You are NOT pasting it back. The output must 
         hookAngle: kind === "polished" ? polishedAngle : faithfulAngle,
         weekTheme: "",
         signals,
+        contentType: "research",
       }),
       maxTokens: 1200,
     });

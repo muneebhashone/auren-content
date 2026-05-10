@@ -9,6 +9,7 @@ import {
   weeklyBriefs,
   performanceRecords,
   businessProfile,
+  storyBank,
 } from "@/lib/db/schema";
 import type { Post } from "@/lib/db/schema";
 import { db } from "@/lib/db/client";
@@ -42,6 +43,15 @@ function platformDisplayName(p: string): string {
   if (p === "linkedin") return "LinkedIn";
   if (p === "reddit") return "Reddit";
   return "X";
+}
+
+function contentTypeBadge(
+  type: string
+): { variant: "accent" | "default" | "warning" | "danger"; label: string } {
+  if (type === "story") return { variant: "default", label: "Story" };
+  if (type === "fun") return { variant: "warning", label: "Fun" };
+  if (type === "opinion") return { variant: "danger", label: "Opinion" };
+  return { variant: "accent", label: "Research" };
 }
 
 async function loadCitations(postId: number): Promise<CitationSource[]> {
@@ -132,6 +142,19 @@ async function loadCitations(postId: number): Promise<CitationSource[]> {
       });
     }
   }
+  if (idsByKind.storybank?.length) {
+    const sbs = await db
+      .select()
+      .from(storyBank)
+      .where(inArray(storyBank.id, idsByKind.storybank));
+    for (const s of sbs) {
+      sourceLookup.set(`storybank:${s.id}`, {
+        label: s.kind === "hot_take" ? "Hot take" : "Story",
+        detail: s.title,
+        url: `/strategy/story-bank?edit=${s.id}`,
+      });
+    }
+  }
 
   return rows.map((r) => {
     const key = r.sourceId != null ? `${r.sourceKind}:${r.sourceId}` : null;
@@ -193,6 +216,10 @@ export async function PostDetailView({ post }: { post: Post }) {
           <Badge variant={platformBadgeVariant(post.platform)}>
             {platformDisplayName(post.platform)}
           </Badge>
+          {(() => {
+            const ct = contentTypeBadge(post.contentType);
+            return <Badge variant={ct.variant}>{ct.label}</Badge>;
+          })()}
           {post.platform === "reddit" && post.subreddit ? (
             <Badge variant="muted">{post.subreddit}</Badge>
           ) : null}

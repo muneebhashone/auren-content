@@ -25,6 +25,7 @@ import {
   saveOverridesAction,
   resetOverridesAction,
   saveGenerationConcurrencyAction,
+  saveContentMixAction,
 } from "./actions";
 import { ModelRoutingEditor } from "./model-routing-editor";
 import {
@@ -33,6 +34,7 @@ import {
   CONCURRENCY_MIN,
   CONCURRENCY_MAX,
 } from "@/lib/generation/settings";
+import { getContentMix } from "@/lib/generation/content-mix";
 
 const TASK_ORDER: LlmTask[] = [
   "research",
@@ -83,7 +85,7 @@ function ProviderStatusCard({
 
 export default async function SettingsPage() {
   const hasKey = Boolean(process.env.OPENROUTER_API_KEY);
-  const [overrides, openRouter, openCode, codex, claude, concurrency] =
+  const [overrides, openRouter, openCode, codex, claude, concurrency, contentMix] =
     await Promise.all([
       getAllRoutingOverrides(),
       listOpenRouterModels(),
@@ -91,6 +93,7 @@ export default async function SettingsPage() {
       listCodexModels(),
       listClaudeCodeModels(),
       getGenerationConcurrency(),
+      getContentMix(),
     ]);
 
   return (
@@ -199,6 +202,86 @@ export default async function SettingsPage() {
             <div>
               <Button type="submit" variant="default">
                 Save concurrency
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Content mix</CardTitle>
+          <CardDescription>
+            Target percentage of each content type per week. Research slots are
+            grounded in fresh signals. Story and opinion slots draw on the
+            Story Bank. Values are normalized to sum to 100 on save.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={saveContentMixAction} className="flex flex-col gap-4">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mix_research">Research %</Label>
+                <Input
+                  id="mix_research"
+                  name="mix_research"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  defaultValue={contentMix.research}
+                  className="font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mix_story">Story %</Label>
+                <Input
+                  id="mix_story"
+                  name="mix_story"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  defaultValue={contentMix.story}
+                  className="font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mix_fun">Fun %</Label>
+                <Input
+                  id="mix_fun"
+                  name="mix_fun"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  defaultValue={contentMix.fun}
+                  className="font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mix_opinion">Opinion %</Label>
+                <Input
+                  id="mix_opinion"
+                  name="mix_opinion"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  defaultValue={contentMix.opinion}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-fg-subtle">
+              Current sum: {contentMix.research + contentMix.story + contentMix.fun + contentMix.opinion}.
+              Story slots draw on a story bank entry; opinion slots punch up at
+              industry practices (no politics, no identity, no attacks on
+              individuals).
+            </p>
+            <div>
+              <Button type="submit" variant="default">
+                Save content mix
               </Button>
             </div>
           </form>
