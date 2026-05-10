@@ -30,6 +30,8 @@ type Variant = {
   body: string;
   hashtags: string[];
   title?: string;
+  imagePrompt?: string;
+  imageUrl?: string;
 };
 type VariantKind = "polished" | "faithful";
 type Platform = "linkedin" | "x" | "reddit";
@@ -174,6 +176,8 @@ You ARE rewriting this for social. You are NOT pasting it back. The output must 
       body: sanitizeForPlatform(platform, resp.content.body),
       hashtags: platform === "reddit" ? [] : resp.content.hashtags ?? [],
       title: cleanTitle,
+      imagePrompt: (resp.content.image_prompt ?? "").trim(),
+      imageUrl: "",
     };
   }
 

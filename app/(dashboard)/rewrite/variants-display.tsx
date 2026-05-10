@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import Image from "next/image";
+import { Copy, Check, ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +15,13 @@ type Platform = "linkedin" | "x" | "reddit";
 type Kind = "polished" | "faithful";
 
 export function VariantsDisplay({
+  rewriteId,
   variants,
   signals,
   editing,
   onChange,
 }: {
+  rewriteId?: number;
   variants: Variants;
   signals: Signal[];
   editing?: boolean;
@@ -37,6 +40,7 @@ export function VariantsDisplay({
       <PlatformGroup
         platform="linkedin"
         title="LinkedIn"
+        rewriteId={rewriteId}
         variants={variants.linkedin}
         editing={editing}
         onChange={(kind, next) => updateVariant("linkedin", kind, next)}
@@ -44,6 +48,7 @@ export function VariantsDisplay({
       <PlatformGroup
         platform="x"
         title="X"
+        rewriteId={rewriteId}
         variants={variants.x}
         editing={editing}
         onChange={(kind, next) => updateVariant("x", kind, next)}
@@ -51,6 +56,7 @@ export function VariantsDisplay({
       <PlatformGroup
         platform="reddit"
         title="Reddit"
+        rewriteId={rewriteId}
         variants={variants.reddit}
         editing={editing}
         onChange={(kind, next) => updateVariant("reddit", kind, next)}
@@ -97,12 +103,14 @@ function platformDotClass(platform: Platform): string {
 function PlatformGroup({
   platform,
   title,
+  rewriteId,
   variants,
   editing,
   onChange,
 }: {
   platform: Platform;
   title: string;
+  rewriteId?: number;
   variants: { polished: Variant; faithful: Variant };
   editing?: boolean;
   onChange: (kind: Kind, next: Variant) => void;
@@ -116,6 +124,7 @@ function PlatformGroup({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <VariantCard
           platform={platform}
+          rewriteId={rewriteId}
           variant={variants.polished}
           kind="polished"
           label="Polished"
@@ -125,6 +134,7 @@ function PlatformGroup({
         />
         <VariantCard
           platform={platform}
+          rewriteId={rewriteId}
           variant={variants.faithful}
           kind="faithful"
           label="Faithful"
@@ -139,6 +149,7 @@ function PlatformGroup({
 
 function VariantCard({
   platform,
+  rewriteId,
   variant,
   kind,
   label,
@@ -147,6 +158,7 @@ function VariantCard({
   onChange,
 }: {
   platform: Platform;
+  rewriteId?: number;
   variant: Variant;
   kind: Kind;
   label: string;
@@ -155,9 +167,15 @@ function VariantCard({
   onChange: (next: Variant) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const fullText = formatPost(platform, variant);
   const bodyChars = variant.body.length;
   const charStatus = charBadgeStatus(platform, bodyChars);
+  const imagePrompt = variant.imagePrompt?.trim() ?? "";
+  const imageUrl = variant.imageUrl ?? "";
+  const canGenerateImage =
+    !editing && !!rewriteId && imagePrompt.length > 0;
 
   async function copy() {
     try {
@@ -166,6 +184,26 @@ function VariantCard({
       setTimeout(() => setCopied(false), 1500);
     } catch {
       // ignore
+    }
+  }
+
+  async function onGenerateImage() {
+    if (!rewriteId) return;
+    setGeneratingImage(true);
+    setImageError(null);
+    try {
+      const res = await fetch(`/api/rewrite/${rewriteId}/image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, kind }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      onChange({ ...variant, imageUrl: json.imageUrl as string });
+    } catch (err) {
+      setImageError((err as Error).message);
+    } finally {
+      setGeneratingImage(false);
     }
   }
 
@@ -195,14 +233,36 @@ function VariantCard({
             {bodyChars} chars
           </Badge>
           {!editing ? (
-            <Button type="button" size="sm" variant="secondary" onClick={copy}>
-              {copied ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <Copy className="w-3.5 h-3.5" />
-              )}
-              {copied ? "Copied" : "Copy"}
-            </Button>
+            <>
+              <Button type="button" size="sm" variant="secondary" onClick={copy}>
+                {copied ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              {canGenerateImage ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={onGenerateImage}
+                  disabled={generatingImage}
+                >
+                  {generatingImage ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ImageIcon className="w-3.5 h-3.5" />
+                  )}
+                  {generatingImage
+                    ? "Generating"
+                    : imageUrl
+                    ? "Regenerate"
+                    : "Generate image"}
+                </Button>
+              ) : null}
+            </>
           ) : null}
         </div>
       </CardHeader>
@@ -280,6 +340,31 @@ function VariantCard({
             ) : null}
           </>
         )}
+        {imageUrl ? (
+          <div className="overflow-hidden rounded-md border border-border bg-bg-elevated">
+            <Image
+              src={imageUrl}
+              alt={imagePrompt || "Generated image"}
+              width={1024}
+              height={1280}
+              sizes="(max-width: 1024px) 100vw, 480px"
+              className="max-h-[420px] w-full object-contain"
+            />
+          </div>
+        ) : null}
+        {imagePrompt ? (
+          <details className="text-xs">
+            <summary className="cursor-pointer text-fg-subtle hover:text-fg-muted">
+              Image prompt
+            </summary>
+            <p className="mt-2 rounded-md border border-border bg-bg-elevated p-2.5 font-mono text-xs leading-relaxed text-fg-muted whitespace-pre-wrap">
+              {imagePrompt}
+            </p>
+          </details>
+        ) : null}
+        {imageError ? (
+          <p className="text-xs text-danger">{imageError}</p>
+        ) : null}
       </CardContent>
     </Card>
   );

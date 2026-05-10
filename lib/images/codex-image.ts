@@ -10,22 +10,23 @@ function getBin(): string {
   return process.env.CODEX_BIN || "codex";
 }
 
-export async function generatePostImageWithCodex({
-  postId,
+export async function generateImageWithCodex({
+  filenamePrefix,
   imagePrompt,
 }: {
-  postId: number;
+  filenamePrefix: string;
   imagePrompt: string;
 }): Promise<string> {
   const trimmed = imagePrompt.trim();
-  if (!trimmed) throw new Error("This post has no image prompt.");
+  if (!trimmed) throw new Error("No image prompt to generate from.");
+  const safePrefix = sanitizePrefix(filenamePrefix);
 
   const outDir = await mkdtemp(join(tmpdir(), "auren-codex-image-"));
   const outputFile = join(outDir, "last-message.txt");
   const prompt = [
     "Use the image generation feature to create exactly one social-media-ready image from this prompt.",
     "Save the image file in the current working directory.",
-    `Use a filename beginning with post-${postId}.`,
+    `Use a filename beginning with ${safePrefix}.`,
     "Return only the generated image filename or absolute path. No prose.",
     "",
     "Image prompt:",
@@ -43,13 +44,32 @@ export async function generatePostImageWithCodex({
       "generated"
     );
     await mkdir(publicDir, { recursive: true });
-    const publicName = `post-${postId}-${Date.now()}${ext}`;
+    const publicName = `${safePrefix}-${Date.now()}${ext}`;
     const publicPath = join(publicDir, publicName);
     await copyFile(generated, publicPath);
     return `/generated/${publicName}`;
   } finally {
     await rm(outDir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+export async function generatePostImageWithCodex({
+  postId,
+  imagePrompt,
+}: {
+  postId: number;
+  imagePrompt: string;
+}): Promise<string> {
+  if (!imagePrompt.trim()) throw new Error("This post has no image prompt.");
+  return generateImageWithCodex({
+    filenamePrefix: `post-${postId}`,
+    imagePrompt,
+  });
+}
+
+function sanitizePrefix(prefix: string): string {
+  const cleaned = prefix.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return cleaned || "image";
 }
 
 async function runCodexImage(

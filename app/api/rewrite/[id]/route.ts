@@ -11,6 +11,8 @@ const variantSchema = z.object({
   body: z.string().default(""),
   hashtags: z.array(z.string()).default([]),
   title: z.string().optional(),
+  imagePrompt: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 const variantsSchema = z.object({

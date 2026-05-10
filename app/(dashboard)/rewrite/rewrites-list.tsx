@@ -205,6 +205,7 @@ function RewriteItem({ item }: { item: RewriteRow }) {
             </details>
           )}
           <VariantsDisplay
+            rewriteId={item.id}
             variants={variants}
             signals={item.signals}
             editing={editing}

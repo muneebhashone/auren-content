@@ -123,8 +123,12 @@ export function RewriteForm({ personas }: { personas: PersonaOption[] }) {
 
       {result ? (
         <VariantsDisplay
+          rewriteId={result.id}
           variants={{ linkedin: result.linkedin, x: result.x, reddit: result.reddit }}
           signals={result.signals}
+          onChange={(next) =>
+            setResult((prev) => (prev ? { ...prev, ...next } : prev))
+          }
         />
       ) : null}
     </div>
