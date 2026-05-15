@@ -1,14 +1,19 @@
 import type { LlmTask } from "./router";
 
-export type LlmProvider = "openrouter" | "opencode" | "codex" | "claude";
-export type CodexReasoningEffort = "low" | "medium" | "high" | "xhigh";
-export type ClaudeEffort = "low" | "medium" | "high" | "xhigh" | "max";
+export type LlmProvider =
+  | "openrouter"
+  | "deepseek"
+  | "opencode"
+  | "codex"
+  | "claude-code"
+  | (string & {});
+
+export type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface TaskRouting {
   provider: LlmProvider;
   model: string;
-  reasoningEffort?: CodexReasoningEffort;
-  claudeEffort?: ClaudeEffort;
+  reasoningEffort?: ReasoningEffort;
 }
 
 export type ChatMessage =
@@ -26,21 +31,21 @@ export interface CallOptions {
   messages: ChatMessage[];
   /** When true, instructs the model to return JSON. */
   json?: boolean;
-  /** Temperature; default 0.7 for write tasks, 0.3 for analytic ones. Ignored by CLI providers. */
+  /** Temperature; default 0.7 for write tasks, 0.3 for analytic ones. */
   temperature?: number;
-  /** Max output tokens. Ignored by CLI providers. */
+  /** Max output tokens. */
   maxTokens?: number;
-  /** Override the routed model (rare). Format: "model-id" — does not include provider prefix. */
+  /** Override the routed model (rare). Format: full gateway model id. */
   modelOverride?: string;
   /** Override the routed provider (rare). */
   providerOverride?: LlmProvider;
-  /** Override Codex CLI reasoning effort. Ignored by non-Codex providers. */
-  reasoningEffortOverride?: CodexReasoningEffort;
-  /** Override Claude Code CLI effort. Ignored by non-Claude providers. */
-  claudeEffortOverride?: ClaudeEffort;
-  /** Extra OpenRouter routing flags. Ignored by CLI providers. */
+  /** Override gateway reasoning effort. */
+  reasoningEffortOverride?: ReasoningEffort;
+  /** Deprecated: old Claude Code setting, normalized to reasoningEffortOverride. */
+  claudeEffortOverride?: ReasoningEffort;
+  /** Extra provider routing flags. Passed through to the gateway. */
   providerHints?: Record<string, unknown>;
-  /** Extra top-level fields merged into the OpenRouter request body (e.g. Perplexity's `search_recency_filter`). Ignored by CLI providers. */
+  /** Extra top-level fields merged into the gateway request body. */
   extraBody?: Record<string, unknown>;
 }
 

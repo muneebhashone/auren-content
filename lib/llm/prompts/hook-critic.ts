@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../openrouter";
+import type { ChatMessage } from "../types";
 
 export interface HookCriticInput {
   platform: "x" | "linkedin" | "reddit";

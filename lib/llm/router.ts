@@ -2,12 +2,8 @@ import { db } from "@/lib/db/client";
 import { settings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { safeJson } from "@/lib/utils";
-import type {
-  ClaudeEffort,
-  CodexReasoningEffort,
-  LlmProvider,
-  TaskRouting,
-} from "./types";
+import type { LlmProvider, ReasoningEffort, TaskRouting } from "./types";
+import { modelForProvider, providerFromModel } from "./gateway";
 
 export type LlmTask =
   | "research"
@@ -18,36 +14,40 @@ export type LlmTask =
   | "rationale"
   | "feedback-analysis";
 
-// Defaults baked in. User can override per-task in Settings.
 export const DEFAULT_ROUTING: Record<LlmTask, TaskRouting> = {
-  // Web-search-capable for live trend grounding
-  research: { provider: "openrouter", model: "perplexity/sonar-pro" },
-  // Long-context strategist
-  strategy: { provider: "openrouter", model: "anthropic/claude-sonnet-4.5" },
-  // Voice-matching writer
-  write: { provider: "openrouter", model: "anthropic/claude-sonnet-4.5" },
-  // Punchy hooks
-  hook: { provider: "openrouter", model: "openai/gpt-4o" },
-  // Cheap, fast cleanup
-  polish: { provider: "openrouter", model: "anthropic/claude-haiku-4.5" },
-  // Reasoning + citation alignment
-  rationale: { provider: "openrouter", model: "anthropic/claude-sonnet-4.5" },
-  // Pattern recognition over performance corpus
+  research: {
+    provider: "openrouter",
+    model: "openrouter/perplexity/sonar-pro",
+  },
+  strategy: {
+    provider: "openrouter",
+    model: "openrouter/anthropic/claude-sonnet-4.5",
+  },
+  write: {
+    provider: "openrouter",
+    model: "openrouter/anthropic/claude-sonnet-4.5",
+  },
+  hook: { provider: "openrouter", model: "openrouter/openai/gpt-4o" },
+  polish: {
+    provider: "openrouter",
+    model: "openrouter/anthropic/claude-haiku-4.5",
+  },
+  rationale: {
+    provider: "openrouter",
+    model: "openrouter/anthropic/claude-sonnet-4.5",
+  },
   "feedback-analysis": {
     provider: "openrouter",
-    model: "anthropic/claude-opus-4.1",
+    model: "openrouter/anthropic/claude-opus-4.1",
   },
 };
 
 const SETTINGS_KEY = "model_overrides";
 
-type StoredOverrides = Partial<Record<LlmTask, TaskRouting | string>>;
+type StoredRoute = TaskRouting & { claudeEffort?: ReasoningEffort };
+type StoredOverrides = Partial<Record<LlmTask, StoredRoute | string>>;
 
-function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
-  return value === "low" || value === "medium" || value === "high" || value === "xhigh";
-}
-
-function isClaudeEffort(value: unknown): value is ClaudeEffort {
+function isReasoningEffort(value: unknown): value is ReasoningEffort {
   return (
     value === "low" ||
     value === "medium" ||
@@ -57,36 +57,61 @@ function isClaudeEffort(value: unknown): value is ClaudeEffort {
   );
 }
 
-function normalize(
-  raw: StoredOverrides
-): Partial<Record<LlmTask, TaskRouting>> {
+function normalizeProvider(provider: string | undefined, model: string): LlmProvider {
+  if (provider === "claude") return "claude-code";
+  if (provider) return provider as LlmProvider;
+  return providerFromModel(model);
+}
+
+function normalizeRoute(
+  provider: string | undefined,
+  model: string,
+  reasoningEffort?: unknown,
+  claudeEffort?: unknown
+): TaskRouting {
+  const normalizedProvider = normalizeProvider(provider, model);
+  const normalizedModel = model.includes("/")
+    ? modelForProvider(normalizedProvider, stripLegacyProvider(model, provider))
+    : modelForProvider(normalizedProvider, model);
+  const effort = isReasoningEffort(reasoningEffort)
+    ? reasoningEffort
+    : isReasoningEffort(claudeEffort)
+      ? claudeEffort
+      : undefined;
+
+  return {
+    provider: normalizedProvider,
+    model: normalizedModel,
+    ...(effort ? { reasoningEffort: effort } : {}),
+  };
+}
+
+function stripLegacyProvider(model: string, provider: string | undefined): string {
+  if (!provider) return model;
+  const normalizedProvider = provider === "claude" ? "claude-code" : provider;
+  if (model.startsWith(`${normalizedProvider}/`)) return model.slice(normalizedProvider.length + 1);
+  return model;
+}
+
+function normalize(raw: StoredOverrides): Partial<Record<LlmTask, TaskRouting>> {
   const out: Partial<Record<LlmTask, TaskRouting>> = {};
   for (const [task, value] of Object.entries(raw) as Array<
-    [LlmTask, TaskRouting | string | undefined]
+    [LlmTask, StoredRoute | string | undefined]
   >) {
     if (!value) continue;
     if (typeof value === "string") {
-      // Legacy string format — assume openrouter
-      out[task] = { provider: "openrouter", model: value };
+      out[task] = normalizeRoute("openrouter", value);
     } else if (
       value &&
       typeof value === "object" &&
-      typeof value.model === "string" &&
-      (value.provider === "openrouter" ||
-        value.provider === "opencode" ||
-        value.provider === "codex" ||
-        value.provider === "claude")
+      typeof value.model === "string"
     ) {
-      out[task] = {
-        provider: value.provider,
-        model: value.model,
-        ...(value.provider === "codex" && isCodexReasoningEffort(value.reasoningEffort)
-          ? { reasoningEffort: value.reasoningEffort }
-          : {}),
-        ...(value.provider === "claude" && isClaudeEffort(value.claudeEffort)
-          ? { claudeEffort: value.claudeEffort }
-          : {}),
-      };
+      out[task] = normalizeRoute(
+        value.provider,
+        value.model,
+        value.reasoningEffort,
+        value.claudeEffort
+      );
     }
   }
   return out;
@@ -116,7 +141,15 @@ export async function getAllRoutingOverrides(): Promise<
 export async function setRoutingOverrides(
   overrides: Partial<Record<LlmTask, TaskRouting>>
 ): Promise<void> {
-  const json = JSON.stringify(overrides);
+  const normalized: Partial<Record<LlmTask, TaskRouting>> = {};
+  for (const [task, route] of Object.entries(overrides) as Array<
+    [LlmTask, TaskRouting | undefined]
+  >) {
+    if (!route?.model) continue;
+    normalized[task] = normalizeRoute(route.provider, route.model, route.reasoningEffort);
+  }
+
+  const json = JSON.stringify(normalized);
   const existing = await db
     .select()
     .from(settings)

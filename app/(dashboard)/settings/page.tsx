@@ -4,10 +4,9 @@ import {
   type LlmTask,
 } from "@/lib/llm/router";
 import {
-  listOpenRouterModels,
-  listOpenCodeModels,
-  listCodexModels,
-  listClaudeCodeModels,
+  listGatewayModelInfos,
+  listGatewayProviderStatuses,
+  type ProviderStatusInfo,
 } from "@/lib/llm/models";
 import {
   Card,
@@ -58,40 +57,76 @@ const TASK_HELP: Record<LlmTask, string> = {
 
 export const dynamic = "force-dynamic";
 
+const CAPABILITY_LABELS: Array<{
+  key: keyof ProviderStatusInfo["capabilities"];
+  label: string;
+}> = [
+  { key: "text", label: "Text" },
+  { key: "imageInput", label: "Image input" },
+  { key: "imageGeneration", label: "Image gen" },
+  { key: "tools", label: "Tools" },
+  { key: "streaming", label: "Streaming" },
+  { key: "jsonMode", label: "JSON" },
+  { key: "reasoningEffort", label: "Reasoning" },
+];
+
 function ProviderStatusCard({
   name,
   configured,
+  modelCount,
+  capabilities,
+  detail,
   unavailableLabel = "Unavailable",
 }: {
   name: string;
   configured: boolean;
+  modelCount: number;
+  capabilities: ProviderStatusInfo["capabilities"] | null;
+  detail?: string;
   unavailableLabel?: string;
 }) {
+  const features = capabilities
+    ? CAPABILITY_LABELS.filter((item) => capabilities[item.key])
+    : [];
+
   return (
-    <div className="flex min-h-[88px] flex-col justify-between rounded-md border border-border bg-bg-elevated p-4">
-      <CardTitle className="text-sm">{name}</CardTitle>
-      {configured ? (
-        <Badge variant="accent" className="self-start">
-          Configured
-        </Badge>
-      ) : (
-        <Badge variant="warning" className="self-start">
-          {unavailableLabel}
-        </Badge>
-      )}
+    <div className="flex min-h-[132px] flex-col gap-3 rounded-md border border-border bg-bg-elevated p-4">
+      <div className="flex items-start justify-between gap-3">
+        <CardTitle className="text-sm">{name}</CardTitle>
+        {configured ? (
+          <Badge variant="accent" className="shrink-0">
+            {modelCount} models
+          </Badge>
+        ) : (
+          <Badge variant="warning" className="shrink-0">
+            {unavailableLabel}
+          </Badge>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {features.length > 0 ? (
+          features.map((feature) => (
+            <Badge key={feature.key} variant="muted">
+              {feature.label}
+            </Badge>
+          ))
+        ) : (
+          <span className="text-xs text-fg-subtle">No capabilities reported</span>
+        )}
+      </div>
+      {detail ? (
+        <p className="line-clamp-2 text-xs leading-snug text-fg-subtle">{detail}</p>
+      ) : null}
     </div>
   );
 }
 
 export default async function SettingsPage() {
-  const hasKey = Boolean(process.env.OPENROUTER_API_KEY);
-  const [overrides, openRouter, openCode, codex, claude, concurrency, contentMix] =
+  const [overrides, gatewayModels, gatewayProviders, concurrency, contentMix] =
     await Promise.all([
       getAllRoutingOverrides(),
-      listOpenRouterModels(),
-      listOpenCodeModels(),
-      listCodexModels(),
-      listClaudeCodeModels(),
+      listGatewayModelInfos(),
+      listGatewayProviderStatuses(),
       getGenerationConcurrency(),
       getContentMix(),
     ]);
@@ -109,20 +144,27 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <ProviderStatusCard
-              name="OpenRouter"
-              configured={hasKey}
-              unavailableLabel="Not set"
-            />
-            <ProviderStatusCard name="Codex CLI" configured={codex.available} />
-            <ProviderStatusCard
-              name="OpenCode CLI"
-              configured={openCode.available}
-            />
-            <ProviderStatusCard
-              name="Claude Code CLI"
-              configured={claude.available}
-            />
+            {gatewayProviders.providers.length > 0 ? (
+              gatewayProviders.providers.map((provider) => (
+                <ProviderStatusCard
+                  key={provider.id}
+                  name={provider.name}
+                  configured={provider.configured}
+                  modelCount={provider.modelCount}
+                  capabilities={provider.capabilities}
+                  detail={provider.detail}
+                  unavailableLabel="Unavailable"
+                />
+              ))
+            ) : (
+              <ProviderStatusCard
+                name="AI Gateway"
+                configured={false}
+                modelCount={0}
+                capabilities={null}
+                unavailableLabel="Unavailable"
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -143,13 +185,12 @@ export default async function SettingsPage() {
                 defaultRouting: DEFAULT_ROUTING[task],
               }))}
               overrides={overrides}
-              openRouterModels={openRouter.models}
-              openCodeModels={openCode.models}
-              codexModels={codex.models}
-              claudeModels={claude.models}
-              openCodeAvailable={openCode.available}
-              codexAvailable={codex.available}
-              claudeAvailable={claude.available}
+              models={gatewayModels.models}
+              providers={gatewayProviders.providers.map((provider) => ({
+                id: provider.id,
+                name: provider.name,
+                configured: provider.configured,
+              }))}
             />
             <div className="flex items-center gap-2">
               <Button type="submit" variant="default">

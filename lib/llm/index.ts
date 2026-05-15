@@ -1,8 +1,5 @@
 import { getRoutingForTask } from "./router";
-import { callOpenRouter } from "./openrouter";
-import { callOpenCode } from "./opencode";
-import { callCodex } from "./codex";
-import { callClaudeCode } from "./claude-code";
+import { callGatewayChat, modelForProvider } from "./gateway";
 import type { CallOptions, CallResult, ChatMessage } from "./types";
 
 export type { ChatMessage, CallOptions, CallResult, LlmProvider, TaskRouting } from "./types";
@@ -28,25 +25,18 @@ export async function callLLM(
 ): Promise<CallResult<string>> {
   const routing = await getRoutingForTask(opts.task);
   const provider = opts.providerOverride ?? routing.provider;
-  const model = opts.modelOverride ?? routing.model;
-  const reasoningEffort = opts.reasoningEffortOverride ?? routing.reasoningEffort;
-  const claudeEffort = opts.claudeEffortOverride ?? routing.claudeEffort;
+  const model = modelForProvider(provider, opts.modelOverride ?? routing.model);
+  const reasoningEffort =
+    opts.reasoningEffortOverride ??
+    opts.claudeEffortOverride ??
+    routing.reasoningEffort;
 
   const optsWithDate: CallOptions = {
     ...opts,
     messages: [todayContextMessage(), ...opts.messages],
   };
 
-  if (provider === "opencode") {
-    return callOpenCode(optsWithDate, model);
-  }
-  if (provider === "codex") {
-    return callCodex(optsWithDate, model, reasoningEffort);
-  }
-  if (provider === "claude") {
-    return callClaudeCode(optsWithDate, model, claudeEffort);
-  }
-  return callOpenRouter(optsWithDate, model);
+  return callGatewayChat(optsWithDate, model, reasoningEffort);
 }
 
 export async function callLLMJson<T>(

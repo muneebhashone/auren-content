@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../openrouter";
+import type { ChatMessage } from "../types";
 
 export type ContentType = "research" | "story" | "fun" | "opinion";
 

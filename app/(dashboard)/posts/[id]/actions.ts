@@ -53,7 +53,7 @@ export async function generateImage(id: number) {
     .update(posts)
     .set({
       imageUrl,
-      imageProvider: "codex",
+      imageProvider: process.env.AI_GATEWAY_IMAGE_MODEL || "codex/gpt-5.5",
       imageGeneratedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })

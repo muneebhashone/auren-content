@@ -1,13 +1,12 @@
-import { spawn } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, extname, join, resolve } from "node:path";
-import { needsWindowsShell } from "@/lib/llm/cli-spawn";
+import { dirname, extname, join } from "node:path";
+import { gatewayFetch } from "@/lib/llm/gateway";
 
 const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
-function getBin(): string {
-  return process.env.CODEX_BIN || "codex";
+interface ImageGenerationResponse {
+  data?: Array<{ url?: string; b64_json?: string }>;
 }
 
 export async function generateImageWithCodex({
@@ -21,36 +20,42 @@ export async function generateImageWithCodex({
   if (!trimmed) throw new Error("No image prompt to generate from.");
   const safePrefix = sanitizePrefix(filenamePrefix);
 
-  const outDir = await mkdtemp(join(tmpdir(), "auren-codex-image-"));
-  const outputFile = join(outDir, "last-message.txt");
-  const prompt = [
-    "Use the image generation feature to create exactly one social-media-ready image from this prompt.",
-    "Save the image file in the current working directory.",
-    `Use a filename beginning with ${safePrefix}.`,
-    "Return only the generated image filename or absolute path. No prose.",
-    "",
-    "Image prompt:",
-    trimmed,
-  ].join("\n");
+  const model = process.env.AI_GATEWAY_IMAGE_MODEL || "codex/gpt-5.5";
+  const size = process.env.AI_GATEWAY_IMAGE_SIZE || "1024x1024";
+  const responseFormat = process.env.AI_GATEWAY_IMAGE_RESPONSE_FORMAT || "b64_json";
 
-  try {
-    await runCodexImage(outDir, outputFile, prompt);
-    const returned = (await readFile(outputFile, "utf8").catch(() => "")).trim();
-    const generated = await findGeneratedImage(outDir, returned);
-    const ext = extname(generated).toLowerCase();
-    const publicDir = join(
-      /*turbopackIgnore: true*/ process.cwd(),
-      "public",
-      "generated"
-    );
-    await mkdir(publicDir, { recursive: true });
-    const publicName = `${safePrefix}-${Date.now()}${ext}`;
-    const publicPath = join(publicDir, publicName);
-    await copyFile(generated, publicPath);
-    return `/generated/${publicName}`;
-  } finally {
-    await rm(outDir, { recursive: true, force: true }).catch(() => {});
+  const data = await gatewayFetch<ImageGenerationResponse>("/v1/images/generations", {
+    method: "POST",
+    body: JSON.stringify({
+      model,
+      prompt: trimmed,
+      n: 1,
+      size,
+      response_format: responseFormat,
+    }),
+  });
+
+  const image = data.data?.[0];
+  if (!image?.b64_json && !image?.url) {
+    throw new Error("AI gateway did not return an image.");
   }
+
+  const generated = image.b64_json
+    ? await writeBase64Image(safePrefix, image.b64_json)
+    : await downloadImage(safePrefix, image.url!);
+
+  const ext = extname(generated).toLowerCase();
+  const publicDir = join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "public",
+    "generated"
+  );
+  await mkdir(publicDir, { recursive: true });
+  const publicName = `${safePrefix}-${Date.now()}${ext}`;
+  const publicPath = join(publicDir, publicName);
+  await copyFile(generated, publicPath);
+  await rm(dirname(generated), { recursive: true, force: true }).catch(() => {});
+  return `/generated/${publicName}`;
 }
 
 export async function generatePostImageWithCodex({
@@ -72,89 +77,32 @@ function sanitizePrefix(prefix: string): string {
   return cleaned || "image";
 }
 
-async function runCodexImage(
-  cwd: string,
-  outputFile: string,
-  prompt: string
-): Promise<void> {
-  const bin = getBin();
-  const model = process.env.CODEX_IMAGE_MODEL || process.env.CODEX_MODEL || "gpt-5.5";
-  const reasoningEffort = process.env.CODEX_IMAGE_REASONING_EFFORT;
-  const args = [
-    "exec",
-    "--ephemeral",
-    "--skip-git-repo-check",
-    "--sandbox",
-    "workspace-write",
-    "-c",
-    'approval_policy="never"',
-    "--model",
-    model,
-    ...(isReasoningEffort(reasoningEffort)
-      ? ["-c", `model_reasoning_effort="${reasoningEffort}"`]
-      : []),
-    "--output-last-message",
-    outputFile,
-    "-",
-  ];
-
-  await new Promise<void>((resolvePromise, reject) => {
-    let stderr = "";
-    const child = spawn(bin, args, {
-      cwd,
-      stdio: ["pipe", "ignore", "pipe"],
-      shell: needsWindowsShell(bin),
-    });
-    child.on("error", (err) => {
-      reject(
-        new Error(
-          `Codex CLI spawn failed (bin: ${bin}): ${err.message}. Ensure 'codex' is on PATH or set CODEX_BIN.`
-        )
-      );
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `Codex image generation exited with code ${code}. stderr: ${stderr.trim() || "(empty)"}`
-          )
-        );
-        return;
-      }
-      resolvePromise();
-    });
-    child.stdin.end(prompt);
-  });
+async function writeBase64Image(prefix: string, b64: string): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "auren-gateway-image-"));
+  const path = join(tempDir, `${prefix}.png`);
+  await writeFile(path, Buffer.from(stripDataUrl(b64), "base64"));
+  return path;
 }
 
-function isReasoningEffort(value: string | undefined): boolean {
-  return value === "low" || value === "medium" || value === "high" || value === "xhigh";
+async function downloadImage(prefix: string, url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Image download failed: ${res.status}`);
+  const contentType = res.headers.get("content-type") ?? "";
+  const ext = extensionForContentType(contentType) ?? extname(new URL(url).pathname) ?? ".png";
+  const normalizedExt = ALLOWED_EXTENSIONS.has(ext.toLowerCase()) ? ext : ".png";
+  const tempDir = await mkdtemp(join(tmpdir(), "auren-gateway-image-"));
+  const path = join(tempDir, `${prefix}${normalizedExt}`);
+  await writeFile(path, Buffer.from(await res.arrayBuffer()));
+  return path;
 }
 
-async function findGeneratedImage(outDir: string, returned: string): Promise<string> {
-  const candidates: string[] = [];
-  const safeRoot = resolve(outDir);
-  const cleaned = returned.replace(/^["'`]+|["'`]+$/g, "").trim();
-  if (cleaned) {
-    const maybe = resolve(outDir, cleaned);
-    if (maybe.startsWith(safeRoot)) candidates.push(maybe);
-    candidates.push(resolve(outDir, basename(cleaned)));
-  }
+function stripDataUrl(value: string): string {
+  return value.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+}
 
-  for (const entry of await readdir(outDir)) {
-    candidates.push(resolve(outDir, entry));
-  }
-
-  for (const candidate of Array.from(new Set(candidates))) {
-    if (!candidate.startsWith(safeRoot)) continue;
-    const ext = extname(candidate).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.has(ext)) continue;
-    const info = await stat(candidate).catch(() => null);
-    if (info?.isFile() && info.size > 0) return candidate;
-  }
-
-  throw new Error("Codex CLI did not produce a PNG, JPG, JPEG, or WEBP image file.");
+function extensionForContentType(contentType: string): string | null {
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  return null;
 }

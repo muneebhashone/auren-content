@@ -16,27 +16,22 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Codex CLI provider
+## AI Gateway
 
-This app can route LLM tasks through the local Codex CLI without using an SDK.
+This app routes LLM and image generation through the local AI API Gateway. The
+gateway owns provider credentials, CLI auth, provider health checks, web
+search/tools, and model discovery.
 
-```bash
-npm i -g @openai/codex
-codex login
+```env
+AI_GATEWAY_BASE_URL=http://127.0.0.1:3000
+AI_GATEWAY_IMAGE_MODEL=codex/gpt-5.5
+AI_GATEWAY_IMAGE_SIZE=1024x1024
+AI_GATEWAY_IMAGE_RESPONSE_FORMAT=b64_json
 ```
 
-Set `CODEX_BIN` in `.env.local` only if `codex` is not on PATH. Post images are generated through Codex CLI image generation and saved under `public/generated`.
-
-## Claude Code CLI provider
-
-This app can also route text-generation tasks through the local Claude Code CLI without using an SDK.
-
-```bash
-claude auth login
-claude auth status --text
-```
-
-Set `CLAUDE_CODE_BIN` in `.env.local` only if `claude` is not on PATH. Settings shows the documented Claude Code model aliases by default; set `CLAUDE_CODE_MODELS` to a comma-separated list to override them.
+Settings reads providers and models from the gateway's `/v1/providers` and
+`/v1/models` endpoints. Post images are generated through
+`/v1/images/generations` and saved under `public/generated`.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

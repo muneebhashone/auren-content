@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../openrouter";
+import type { ChatMessage } from "../types";
 import type { ContentType } from "./strategy";
 import {
   buildRegister,

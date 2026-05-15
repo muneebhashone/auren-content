@@ -8,9 +8,8 @@ import { Select } from "@/components/ui/select";
 import type { LlmModelInfo } from "@/lib/llm/models";
 import type { LlmTask } from "@/lib/llm/router";
 import type {
-  ClaudeEffort,
-  CodexReasoningEffort,
   LlmProvider,
+  ReasoningEffort,
   TaskRouting,
 } from "@/lib/llm/types";
 import { cn } from "@/lib/utils";
@@ -25,21 +24,15 @@ type ModelGroup = {
   id: string;
   provider: LlmProvider;
   model: string;
-  reasoningEffort: CodexReasoningEffort | "";
-  claudeEffort: ClaudeEffort | "";
+  reasoningEffort: ReasoningEffort | "";
   tasks: LlmTask[];
 };
 
 interface Props {
   tasks: TaskMeta[];
   overrides: Partial<Record<LlmTask, TaskRouting>>;
-  openRouterModels: LlmModelInfo[];
-  openCodeModels: LlmModelInfo[];
-  codexModels: LlmModelInfo[];
-  claudeModels: LlmModelInfo[];
-  openCodeAvailable: boolean;
-  codexAvailable: boolean;
-  claudeAvailable: boolean;
+  models: LlmModelInfo[];
+  providers: { id: string; name: string; configured: boolean }[];
 }
 
 const ALL_VENDORS = "__all__";
@@ -52,12 +45,14 @@ function vendorOf(modelId: string): string {
 function providerLabel(provider: LlmProvider): string {
   if (provider === "openrouter") return "OpenRouter";
   if (provider === "opencode") return "OpenCode";
-  if (provider === "codex") return "Codex CLI";
-  return "Claude Code";
+  if (provider === "codex") return "Codex";
+  if (provider === "claude-code") return "Claude Code";
+  if (provider === "deepseek") return "DeepSeek";
+  return provider;
 }
 
 function routeKey(route: TaskRouting): string {
-  return `${route.provider}:${route.model}:${route.reasoningEffort ?? ""}:${route.claudeEffort ?? ""}`;
+  return `${route.provider}:${route.model}:${route.reasoningEffort ?? ""}`;
 }
 
 function createInitialGroups(
@@ -78,7 +73,6 @@ function createInitialGroups(
         provider: route.provider,
         model: route.model,
         reasoningEffort: route.reasoningEffort ?? "",
-        claudeEffort: route.claudeEffort ?? "",
         tasks: [task],
       });
     }
@@ -93,30 +87,20 @@ function nextGroupId(provider: LlmProvider, model: string): string {
 export function ModelRoutingEditor({
   tasks,
   overrides,
-  openRouterModels,
-  openCodeModels,
-  codexModels,
-  claudeModels,
-  openCodeAvailable,
-  codexAvailable,
-  claudeAvailable,
+  models,
+  providers,
 }: Props) {
   const taskOrder = React.useMemo(() => tasks.map((item) => item.task), [tasks]);
   const [groups, setGroups] = React.useState<ModelGroup[]>(() =>
     createInitialGroups(taskOrder, overrides)
   );
-  const [provider, setProvider] = React.useState<LlmProvider>("openrouter");
+  const [provider, setProvider] = React.useState<LlmProvider>(
+    (providers.find((item) => item.configured)?.id ?? "openrouter") as LlmProvider
+  );
   const [vendor, setVendor] = React.useState<string>(ALL_VENDORS);
   const [model, setModel] = React.useState<string>("");
 
-  const allModels =
-    provider === "openrouter"
-      ? openRouterModels
-      : provider === "opencode"
-        ? openCodeModels
-        : provider === "codex"
-          ? codexModels
-          : claudeModels;
+  const allModels = models.filter((item) => item.provider === provider);
 
   const vendors = React.useMemo(() => {
     const set = new Set<string>();
@@ -138,12 +122,9 @@ export function ModelRoutingEditor({
   }, [groups]);
 
   const defaultTasks = tasks.filter((item) => !routingByTask.has(item.task));
-  const canAdd =
-    model.length > 0 &&
-    (provider === "openrouter" ||
-      (provider === "opencode" && openCodeAvailable) ||
-      (provider === "codex" && codexAvailable) ||
-      (provider === "claude" && claudeAvailable));
+  const providerAvailable =
+    providers.find((item) => item.id === provider)?.configured ?? false;
+  const canAdd = model.length > 0 && providerAvailable;
 
   const onProviderChange = (next: LlmProvider) => {
     setProvider(next);
@@ -166,8 +147,7 @@ export function ModelRoutingEditor({
           (group) =>
             group.provider === provider &&
             group.model === model &&
-            group.reasoningEffort === "" &&
-            group.claudeEffort === ""
+            group.reasoningEffort === ""
         )
       ) {
         return current;
@@ -179,7 +159,6 @@ export function ModelRoutingEditor({
           provider,
           model,
           reasoningEffort: "",
-          claudeEffort: "",
           tasks: [],
         },
       ];
@@ -193,19 +172,11 @@ export function ModelRoutingEditor({
 
   const setReasoningEffort = (
     groupId: string,
-    reasoningEffort: CodexReasoningEffort | ""
+    reasoningEffort: ReasoningEffort | ""
   ) => {
     setGroups((current) =>
       current.map((group) =>
         group.id === groupId ? { ...group, reasoningEffort } : group
-      )
-    );
-  };
-
-  const setClaudeEffort = (groupId: string, claudeEffort: ClaudeEffort | "") => {
-    setGroups((current) =>
-      current.map((group) =>
-        group.id === groupId ? { ...group, claudeEffort } : group
       )
     );
   };
@@ -247,13 +218,6 @@ export function ModelRoutingEditor({
                 type="hidden"
                 name={`override:${task}:reasoning`}
                 value={group.reasoningEffort}
-              />
-            ) : null}
-            {group.provider === "claude" && group.claudeEffort ? (
-              <input
-                type="hidden"
-                name={`override:${task}:claudeEffort`}
-                value={group.claudeEffort}
               />
             ) : null}
           </React.Fragment>
@@ -298,16 +262,11 @@ export function ModelRoutingEditor({
           onChange={(event) => onProviderChange(event.target.value as LlmProvider)}
           className="text-xs"
         >
-          <option value="openrouter">OpenRouter</option>
-          <option value="opencode" disabled={!openCodeAvailable}>
-            OpenCode {openCodeAvailable ? "" : "(unavailable)"}
-          </option>
-          <option value="codex" disabled={!codexAvailable}>
-            Codex CLI {codexAvailable ? "" : "(unavailable)"}
-          </option>
-          <option value="claude" disabled={!claudeAvailable}>
-            Claude Code {claudeAvailable ? "" : "(unavailable)"}
-          </option>
+          {providers.map((item) => (
+            <option key={item.id} value={item.id} disabled={!item.configured}>
+              {item.name} {item.configured ? "" : "(unavailable)"}
+            </option>
+          ))}
         </Select>
         <Select
           value={vendor}
@@ -360,13 +319,14 @@ export function ModelRoutingEditor({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {group.provider === "codex" ? (
+                  {models.find((item) => item.id === group.model)?.capabilities
+                    .reasoningEffort ? (
                     <Select
                       value={group.reasoningEffort}
                       onChange={(event) =>
                         setReasoningEffort(
                           group.id,
-                          event.target.value as CodexReasoningEffort | ""
+                          event.target.value as ReasoningEffort | ""
                         )
                       }
                       className="w-[190px] text-xs"
@@ -376,24 +336,7 @@ export function ModelRoutingEditor({
                       <option value="medium">Medium reasoning</option>
                       <option value="high">High reasoning</option>
                       <option value="xhigh">Extra high reasoning</option>
-                    </Select>
-                  ) : group.provider === "claude" ? (
-                    <Select
-                      value={group.claudeEffort}
-                      onChange={(event) =>
-                        setClaudeEffort(
-                          group.id,
-                          event.target.value as ClaudeEffort | ""
-                        )
-                      }
-                      className="w-[190px] text-xs"
-                    >
-                      <option value="">Default effort</option>
-                      <option value="low">Low effort</option>
-                      <option value="medium">Medium effort</option>
-                      <option value="high">High effort</option>
-                      <option value="xhigh">Extra high effort</option>
-                      <option value="max">Max effort</option>
+                      <option value="max">Max reasoning</option>
                     </Select>
                   ) : null}
                   <Button
