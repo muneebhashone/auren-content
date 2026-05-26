@@ -4,6 +4,46 @@ Multi-LLM content strategy dashboard that turns your business context, personas,
 
 Plan the week once. Generate platform-native drafts with hooks, rationale, and optional images. Log performance and feed it back into the next run.
 
+## Screenshots
+
+### Calendar
+
+Weekly content calendar with persona and platform filters, generation status, and slot cards by day.
+
+![Calendar week view](./public/screenshots/calendar.png)
+
+### Kanban
+
+Track posts through draft → approved → posted → logged.
+
+![Kanban board](./public/screenshots/kanban.png)
+
+### Post detail
+
+Review hooks, hook variants, body, rationale, and citations for each slot.
+
+![Post detail](./public/screenshots/post-detail.png)
+
+### Rewrite
+
+Paste a brain dump and generate six platform variants (LinkedIn / X / Reddit × polished / faithful).
+
+![Rewrite mode](./public/screenshots/rewrite.png)
+
+### Weekly brief & personas
+
+Set the week's focus and manage voices with platform cadence.
+
+![Weekly brief](./public/screenshots/weekly-brief.png)
+
+![Personas](./public/screenshots/personas.png)
+
+### Settings
+
+Configure AI gateway connectivity and per-task model routing.
+
+![Settings](./public/screenshots/settings.png)
+
 ## What it does
 
 Auren is a single-user **content operating system** for founders and small teams who publish under multiple voices. You configure strategy once (ICP, goals, personas, story bank), set a weekly brief, and run a generation pipeline that:
