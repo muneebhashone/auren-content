@@ -48,10 +48,10 @@ Research → Performance digest → Strategy plan → Slot writing (parallel) �
 | Research          | Perplexity Sonar Pro (web search, last-week recency) |
 | Strategy          | Claude Sonnet 4.5                                    |
 | Write             | Claude Sonnet 4.5                                    |
-| Hook critic       | GPT-4o                                               |
+| Hook critic       | GPT-5.5                                              |
 | Polish            | Claude Haiku 4.5                                     |
 | Rationale         | Claude Sonnet 4.5                                    |
-| Feedback analysis | Claude Opus 4.1                                      |
+| Feedback analysis | Claude Opus 4.7                                      |
 
 
 Every post ships with structured **rationale** (hook strategy, audience, slot reasoning, virality lever) and optional **citations** back to research signals, personas, goals, or performance data.
