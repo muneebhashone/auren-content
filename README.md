@@ -18,15 +18,17 @@ There is also a **Rewrite** mode: paste a raw brain dump and get six platform va
 
 ## Features
 
-| Area | What you get |
-|------|----------------|
-| **Calendar** | Week view and kanban by post status (draft → approved → posted → logged) |
-| **Strategy** | Business profile, quarterly goals, personas with voice + cadence, story bank, weekly brief |
-| **Generation** | Research → strategy → write pipeline with per-task model routing |
-| **Rewrite** | Brain-dump → multi-platform social variants with optional fact-check |
-| **Performance** | Import metrics and qualitative notes; patterns feed the next generation |
-| **Images** | Optional image generation for posts via your AI gateway |
-| **Settings** | Per-task LLM routing, content mix ratios, generation concurrency |
+
+| Area            | What you get                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| **Calendar**    | Week view and kanban by post status (draft → approved → posted → logged)                   |
+| **Strategy**    | Business profile, quarterly goals, personas with voice + cadence, story bank, weekly brief |
+| **Generation**  | Research → strategy → write pipeline with per-task model routing                           |
+| **Rewrite**     | Brain-dump → multi-platform social variants with optional fact-check                       |
+| **Performance** | Import metrics and qualitative notes; patterns feed the next generation                    |
+| **Images**      | Optional image generation for posts via your AI gateway                                    |
+| **Settings**    | Per-task LLM routing, content mix ratios, generation concurrency                           |
+
 
 ## How generation works
 
@@ -40,15 +42,17 @@ Research → Performance digest → Strategy plan → Slot writing (parallel) �
 
 **Default model routing** (all overridable in Settings):
 
-| Task | Default model |
-|------|----------------|
-| Research | Perplexity Sonar Pro (web search, last-week recency) |
-| Strategy | Claude Sonnet 4.5 |
-| Write | Claude Sonnet 4.5 |
-| Hook critic | GPT-4o |
-| Polish | Claude Haiku 4.5 |
-| Rationale | Claude Sonnet 4.5 |
-| Feedback analysis | Claude Opus 4.1 |
+
+| Task              | Default model                                        |
+| ----------------- | ---------------------------------------------------- |
+| Research          | Perplexity Sonar Pro (web search, last-week recency) |
+| Strategy          | Claude Sonnet 4.5                                    |
+| Write             | Claude Sonnet 4.5                                    |
+| Hook critic       | GPT-4o                                               |
+| Polish            | Claude Haiku 4.5                                     |
+| Rationale         | Claude Sonnet 4.5                                    |
+| Feedback analysis | Claude Opus 4.1                                      |
+
 
 Every post ships with structured **rationale** (hook strategy, audience, slot reasoning, virality lever) and optional **citations** back to research signals, personas, goals, or performance data.
 
