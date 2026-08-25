@@ -25,11 +25,11 @@ type Variant = {
   imagePrompt?: string;
   imageUrl?: string;
 };
-type REDACTED_NON_SECRET_IDENTIFIER = { polished: Variant; faithful: Variant };
+type Pair = { polished: Variant; faithful: Variant };
 type Variants = {
-  linkedin: REDACTED_NON_SECRET_IDENTIFIER;
-  x: REDACTED_NON_SECRET_IDENTIFIER;
-  reddit: REDACTED_NON_SECRET_IDENTIFIER;
+  linkedin: Pair;
+  x: Pair;
+  reddit: Pair;
 };
 
 export async function POST(
@@ -85,7 +85,7 @@ export async function POST(
     );
   }
 
-  const platformVariants: REDACTED_NON_SECRET_IDENTIFIER = {
+  const platformVariants: Pair = {
     ...variants![platform],
     [kind]: { ...variant!, imageUrl },
   };

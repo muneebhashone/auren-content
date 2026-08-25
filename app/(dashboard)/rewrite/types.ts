@@ -9,10 +9,10 @@ export type Variant = {
   // Public path to the generated image, e.g. "/generated/rewrite-12-x-polished-...png".
   imageUrl?: string;
 };
-export type REDACTED_NON_SECRET_IDENTIFIER = { polished: Variant; faithful: Variant };
+export type Pair = { polished: Variant; faithful: Variant };
 export type Signal = { summary: string; sourceUrl: string };
 export type Variants = {
-  linkedin: REDACTED_NON_SECRET_IDENTIFIER;
-  x: REDACTED_NON_SECRET_IDENTIFIER;
-  reddit: REDACTED_NON_SECRET_IDENTIFIER;
+  linkedin: Pair;
+  x: Pair;
+  reddit: Pair;
 };

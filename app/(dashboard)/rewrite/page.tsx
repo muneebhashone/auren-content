@@ -5,7 +5,7 @@ import { safeJson } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { RewriteForm } from "./rewrite-form";
 import { RewritesList, type RewriteRow } from "./rewrites-list";
-import type { REDACTED_NON_SECRET_IDENTIFIER, Variant, Signal } from "./types";
+import type { Pair, Variant, Signal } from "./types";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +24,9 @@ export default async function RewritePage() {
 
   const items: RewriteRow[] = rows.map((r) => {
     const variants = safeJson<{
-      linkedin: REDACTED_NON_SECRET_IDENTIFIER;
-      x: REDACTED_NON_SECRET_IDENTIFIER;
-      reddit: REDACTED_NON_SECRET_IDENTIFIER;
+      linkedin: Pair;
+      x: Pair;
+      reddit: Pair;
     }>(r.variantsJson, {
       linkedin: { polished: emptyVariant(), faithful: emptyVariant() },
       x: { polished: emptyVariant(), faithful: emptyVariant() },
