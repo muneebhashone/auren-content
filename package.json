@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "build": "next build",
-    "start": "next start",
+    "dev": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=dev --path=/auren-content -- bun run scripts/dev.ts",
+    "build": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=prod --path=/auren-content -- next build",
+    "start": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=prod --path=/auren-content -- next start",
     "lint": "eslint",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run lib/db/migrate.ts",
-    "db:seed": "bun run lib/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:generate": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=dev --path=/auren-content -- drizzle-kit generate",
+    "db:migrate": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=dev --path=/auren-content -- bun run lib/db/migrate.ts",
+    "db:seed": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=dev --path=/auren-content -- bun run lib/db/seed.ts",
+    "db:studio": "infisical run --projectId=98ac6ff9-be43-46a1-8fbf-131e217bccd3 --env=dev --path=/auren-content -- drizzle-kit studio"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
