@@ -122,10 +122,10 @@ bun install
 ### 2. Configure environment
 
 ```bash
-cp .env.local.example .env.local
+Authenticate with `infisical login`; runtime commands inject configuration from `/auren-content`.
 ```
 
-Edit `.env.local`:
+Store configuration in Infisical project `98ac6ff9-be43-46a1-8fbf-131e217bccd3` under `/auren-content` for the appropriate environment:
 
 ```env
 # AI API Gateway — owns provider credentials, CLI auth, web search, and model discovery
